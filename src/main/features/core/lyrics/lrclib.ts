@@ -97,7 +97,7 @@ export async function query(
 ): Promise<InternetProviderLyricResponse | null> {
     let result: AxiosResponse<LrcLibTrackResponse, any>;
 
-    const headers = { 'User-Agent': 'LRCGET v0.2.0 (https://github.com/tesutavt/TesuPlayer)' };
+    const headers = { 'User-Agent': 'LRCGET v0.2.0 (https://github.com/tesutavt/feishin)' };
     // lrclib.net answers 503 now and then: one retry
     const request = async <T>(url: string, query: Record<string, unknown>) => {
         for (let attempt = 0; ; attempt++) {

@@ -7,6 +7,14 @@ directories:
 files:
     - 'out/**/*'
     - 'package.json'
+    # debugging only: source maps of the app and of node_modules
+    - '!**/*.map'
+    - '!**/node_modules/**/*.{md,ts,map}'
+    - '!**/node_modules/**/{test,tests,docs,example,examples}/**'
+# only the UI languages of TesuPlayer (Chromium ships ~55)
+electronLanguages:
+    - en-US
+    - ru
 extraResources:
     - assets/**
     - from: build/yt-dlp
@@ -74,6 +82,6 @@ afterAllArtifactBuild: scripts/after-all-artifact-build.mjs
 publish:
     provider: github
     owner: tesutavt
-    repo: TesuPlayer
+    repo: feishin
     channel: latest
-    releaseType: draft
+    releaseType: release

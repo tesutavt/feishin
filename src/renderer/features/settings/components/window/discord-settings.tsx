@@ -64,7 +64,7 @@ export const DiscordSettings = memo(() => {
             ),
             description: t('setting.discordApplicationId', {
                 context: 'description',
-                defaultId: '1165957668758900787',
+                defaultId: '—',
                 discord: 'Discord',
             }),
             isHidden: !isElectron(),
@@ -135,7 +135,7 @@ export const DiscordSettings = memo(() => {
                     aria-label={t('setting.discordDisplayType')}
                     clearable={false}
                     data={[
-                        { label: 'Feishin', value: DiscordDisplayType.FEISHIN },
+                        { label: 'TesuPlayer', value: DiscordDisplayType.FEISHIN },
                         {
                             label: t('setting.discordDisplayType', {
                                 context: 'songname',

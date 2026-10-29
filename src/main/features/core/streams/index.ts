@@ -13,6 +13,7 @@ import {
 import { getDohProxyUrl } from '/@/main/features/core/streams/doh-proxy';
 import {
     findMusicTags,
+    findPublicCover,
     MusicTags,
     parseVideoTitle,
 } from '/@/main/features/core/streams/music-tags';
@@ -360,6 +361,10 @@ const retagDownloads = async () => {
 };
 
 ipcMain.handle('streams-retag-downloads', () => retagDownloads());
+
+ipcMain.handle('streams-public-cover', (_event, artist: string, album: string, title: string) =>
+    findPublicCover(artist, album, title),
+);
 
 ipcMain.handle('streams-download-audio', (_event, url: string) => downloadAudio(url));
 

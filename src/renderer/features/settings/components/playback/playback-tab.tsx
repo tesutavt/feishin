@@ -6,7 +6,6 @@ import { AudioSettings } from '/@/renderer/features/settings/components/playback
 import { AutoDJSettings } from '/@/renderer/features/settings/components/playback/auto-dj-settings';
 import { EqSettings } from '/@/renderer/features/settings/components/playback/eq-settings';
 import { PlayerFilterSettings } from '/@/renderer/features/settings/components/playback/player-filter-settings';
-import { TranscodeSettings } from '/@/renderer/features/settings/components/playback/transcode-settings';
 import { useSettingsStore } from '/@/renderer/store';
 import { Divider } from '/@/shared/components/divider/divider';
 import { Stack } from '/@/shared/components/stack/stack';
@@ -40,7 +39,6 @@ export const PlaybackTab = memo(() => {
             <Suspense fallback={<></>}>{hasFancyAudio && <MpvSettings />}</Suspense>
             <EqSettings />
             <Divider />
-            <TranscodeSettings />
             <Divider />
             <PlayerFilterSettings />
             <Divider />

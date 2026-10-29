@@ -303,27 +303,27 @@ export default class MenuBuilder {
             submenu: [
                 {
                     click() {
-                        shell.openExternal('https://github.com/tesutavt/TesuPlayer');
+                        shell.openExternal('https://github.com/tesutavt/feishin');
                     },
                     label: 'Learn More',
                 },
                 {
                     click() {
                         shell.openExternal(
-                            'https://github.com/tesutavt/TesuPlayer?tab=readme-ov-file#getting-started',
+                            'https://github.com/tesutavt/feishin?tab=readme-ov-file#getting-started',
                         );
                     },
                     label: 'Documentation',
                 },
                 {
                     click() {
-                        shell.openExternal('https://github.com/tesutavt/TesuPlayer/discussions');
+                        shell.openExternal('https://github.com/tesutavt/feishin/discussions');
                     },
                     label: 'Community Discussions',
                 },
                 {
                     click() {
-                        shell.openExternal('https://github.com/tesutavt/TesuPlayer/issues');
+                        shell.openExternal('https://github.com/tesutavt/feishin/issues');
                     },
                     label: 'Search Issues',
                 },
@@ -420,29 +420,27 @@ export default class MenuBuilder {
                 submenu: [
                     {
                         click() {
-                            shell.openExternal('https://github.com/tesutavt/TesuPlayer');
+                            shell.openExternal('https://github.com/tesutavt/feishin');
                         },
                         label: 'Learn More',
                     },
                     {
                         click() {
                             shell.openExternal(
-                                'https://github.com/tesutavt/TesuPlayer?tab=readme-ov-file#getting-started',
+                                'https://github.com/tesutavt/feishin?tab=readme-ov-file#getting-started',
                             );
                         },
                         label: 'Documentation',
                     },
                     {
                         click() {
-                            shell.openExternal(
-                                'https://github.com/tesutavt/TesuPlayer/discussions',
-                            );
+                            shell.openExternal('https://github.com/tesutavt/feishin/discussions');
                         },
                         label: 'Community Discussions',
                     },
                     {
                         click() {
-                            shell.openExternal('https://github.com/tesutavt/TesuPlayer/issues');
+                            shell.openExternal('https://github.com/tesutavt/feishin/issues');
                         },
                         label: 'Search Issues',
                     },

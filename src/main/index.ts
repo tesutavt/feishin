@@ -42,6 +42,7 @@ import {
     DEFAULT_WINDOW_BOUNDS,
     resolveWindowBounds,
 } from '/@/main/utils/window-bounds';
+import { GITHUB_OWNER, GITHUB_REPO_NAME } from '/@/shared/constants/repository';
 import { PlayerRepeat, PlayerStatus, PlayerType, TitleTheme } from '/@/shared/types/types';
 
 const ALPHA_UPDATER_CONFIG: {
@@ -57,16 +58,18 @@ const ALPHA_UPDATER_CONFIG: {
 };
 
 const GITHUB_UPDATER_CONFIG = {
-    owner: 'jeffvli',
+    owner: GITHUB_OWNER,
     provider: 'github' as const,
-    repo: 'feishin',
+    repo: GITHUB_REPO_NAME,
 };
 
 type UpdaterInstance = AppImageUpdater | MacUpdater | NsisUpdater | typeof autoUpdater;
 
 class AppUpdater {
     constructor() {
-        const effectiveChannel = store.get('release_channel') as string;
+        // the alpha channel was the original project's nightly bucket: TesuPlayer only has GitHub releases
+        const storedChannel = store.get('release_channel') as string;
+        const effectiveChannel = storedChannel === 'alpha' ? 'beta' : storedChannel;
         log.info('Effective update channel:', effectiveChannel);
         if (effectiveChannel === 'alpha') {
             checkAllChannelsAndGetBest().then(({ result, updater: updaterInstance }) => {
@@ -840,7 +843,7 @@ async function createWindow(first = true): Promise<void> {
     });
 
     if (isWindows()) {
-        app.setAppUserModelId('org.jeffvli.feishin');
+        app.setAppUserModelId('com.tesuta.tesuplayer');
     }
 
     menuBuilder = new MenuBuilder(mainWindow, showMainWindow);
@@ -1247,7 +1250,7 @@ if (!singleInstance) {
                     responseHeaders: {
                         ...responseHeaders,
                         'Content-Security-Policy': [
-                            "script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' https://umami.jeffvli.org; style-src 'self' 'unsafe-inline'; media-src 'self' http: https: data: blob:; img-src 'self' http: https: data: blob:; connect-src 'self' http: https: ws: wss:; default-src 'self';",
+                            "script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src 'self' http: https: data: blob:; img-src 'self' http: https: data: blob:; connect-src 'self' http: https: ws: wss:; default-src 'self';",
                         ],
                     },
                 });

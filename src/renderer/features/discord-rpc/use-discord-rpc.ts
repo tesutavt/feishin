@@ -3,7 +3,6 @@ import type { SetActivity } from '@xhayper/discord-rpc';
 import isElectron from 'is-electron';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { api } from '/@/renderer/api';
 import { useItemImageUrl } from '/@/renderer/components/item-image/item-image';
 import { usePlayerEvents } from '/@/renderer/features/player/audio-player/hooks/use-player-events';
 import {
@@ -24,7 +23,7 @@ import {
 import { sentenceCase } from '/@/renderer/utils';
 import { logger } from '/@/renderer/utils/logger';
 import { useDebouncedCallback } from '/@/shared/hooks/use-debounced-callback';
-import { LibraryItem, QueueSong, ServerType } from '/@/shared/types/domain-types';
+import { LibraryItem, QueueSong } from '/@/shared/types/domain-types';
 import { PlayerStatus } from '/@/shared/types/types';
 
 const discordRpc = isElectron() ? window.api.discordRpc : null;
@@ -51,7 +50,7 @@ export const useDiscordRpc = () => {
     const [lastUniqueId, setlastUniqueId] = useState('');
 
     const isRadioActive = useIsRadioActive();
-    const { metadata: radioMetadata, stationName } = useRadioPlayer();
+    const { currentStationArt, metadata: radioMetadata, stationName } = useRadioPlayer();
 
     const currentSong = usePlayerSong();
     const imageUrl = useItemImageUrl({
@@ -131,7 +130,10 @@ export const useDiscordRpc = () => {
                 const activity: SetActivity = {
                     details: truncate(title),
                     instance: false,
-                    largeImageKey: 'icon',
+                    // Twitch / YouTube thumbnails are public; local station images are not
+                    largeImageKey: currentStationArt?.imageUrl?.startsWith('https://')
+                        ? currentStationArt.imageUrl
+                        : 'icon',
                     largeImageText: truncate(stationName || 'Radio'),
                     smallImageKey:
                         current[2] === PlayerStatus.PLAYING
@@ -150,6 +152,8 @@ export const useDiscordRpc = () => {
                     type: discordSettings.showAsListening ? 2 : 0,
                 };
 
+                // no Discord application of the user's own: nothing to show
+                if (!discordSettings.clientId?.trim()) return;
                 const isConnected = await discordRpc?.isConnected();
                 if (!isConnected) {
                     logger.info('Discord RPC was initialized', {
@@ -268,29 +272,20 @@ export const useDiscordRpc = () => {
                 activity.smallImageText = sentenceCase(current[2]);
             }
 
+            // Discord only loads public https images: the library is on 127.0.0.1
             if (discordSettings.showServerImage && song) {
-                if (song._uniqueId === currentSong?._uniqueId && imageUrlRef.current) {
-                    if (song._serverType === ServerType.JELLYFIN) {
-                        activity.largeImageKey = imageUrlRef.current;
-                    } else if (
-                        song._serverType === ServerType.NAVIDROME ||
-                        song._serverType === ServerType.SUBSONIC
-                    ) {
-                        try {
-                            const info = await api.controller.getAlbumInfo({
-                                apiClientProps: {
-                                    forceRemoteUrl: true,
-                                    serverId: song._serverId,
-                                },
-                                query: { id: song.albumId },
-                            });
-
-                            if (info.imageUrl) {
-                                activity.largeImageKey = info.imageUrl;
-                            }
-                        } catch {
-                            /* empty */
-                        }
+                if (song.id.startsWith('yt-')) {
+                    activity.largeImageKey = `https://i.ytimg.com/vi/${song.id.slice(3)}/hqdefault.jpg`;
+                } else {
+                    try {
+                        const cover = await window.api?.streams?.publicCover(
+                            song.albumArtists[0]?.name || song.artists[0]?.name || '',
+                            song.album || '',
+                            song.name,
+                        );
+                        if (cover) activity.largeImageKey = cover;
+                    } catch {
+                        /* no public cover */
                     }
                 }
             }
@@ -318,6 +313,8 @@ export const useDiscordRpc = () => {
             }
 
             // Initialize if needed
+            // no Discord application of the user's own: nothing to show
+            if (!discordSettings.clientId?.trim()) return;
             const isConnected = await discordRpc?.isConnected();
             if (!isConnected) {
                 logger.info('Discord RPC was initialized', {
@@ -355,7 +352,7 @@ export const useDiscordRpc = () => {
             discordSettings.displayType,
             discordSettings.linkType,
             lastUniqueId,
-            currentSong?._uniqueId,
+            currentStationArt,
             isRadioActive,
             radioMetadata?.artist,
             radioMetadata?.title,

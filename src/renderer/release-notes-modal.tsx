@@ -25,9 +25,10 @@ import { Select } from '/@/shared/components/select/select';
 import { Spinner } from '/@/shared/components/spinner/spinner';
 import { Stack } from '/@/shared/components/stack/stack';
 import { Text } from '/@/shared/components/text/text';
+import { GITHUB_REPO, GITHUB_URL } from '/@/shared/constants/repository';
 import { useLocalStorage } from '/@/shared/hooks/use-local-storage';
 
-const GITHUB_COMPARE_URL = 'https://api.github.com/repos/jeffvli/feishin/compare';
+const GITHUB_COMPARE_URL = `https://api.github.com/repos/${GITHUB_REPO}/compare`;
 
 interface GitHubCompareCommit {
     commit: {
@@ -196,8 +197,8 @@ const ReleaseNotesContent = ({ onDismiss, version }: ReleaseNotesContentProps) =
                         component="a"
                         href={
                             showCompareError
-                                ? `https://github.com/jeffvli/feishin/compare/${latestStableRelease.tag_name}...${toTag(selectedVersion)}`
-                                : `https://github.com/jeffvli/feishin/releases/tag/${toTag(selectedVersion)}`
+                                ? `${GITHUB_URL}/compare/${latestStableRelease.tag_name}...${toTag(selectedVersion)}`
+                                : `${GITHUB_URL}/releases/tag/${toTag(selectedVersion)}`
                         }
                         onClick={onDismiss}
                         rightSection={<Icon icon="externalLink" />}
@@ -230,7 +231,7 @@ const ReleaseNotesContent = ({ onDismiss, version }: ReleaseNotesContentProps) =
                 <Group justify="flex-end">
                     <Button
                         component="a"
-                        href={`https://github.com/jeffvli/feishin/releases/tag/${toTag(selectedVersion)}`}
+                        href={`${GITHUB_URL}/releases/tag/${toTag(selectedVersion)}`}
                         onClick={onDismiss}
                         rightSection={<Icon icon="externalLink" />}
                         target="_blank"
@@ -248,7 +249,7 @@ const ReleaseNotesContent = ({ onDismiss, version }: ReleaseNotesContentProps) =
 
     if (isAlpha && compareData) {
         const commits = compareData.commits ?? [];
-        const compareUrl = `https://github.com/jeffvli/feishin/compare/${latestStableRelease?.tag_name}...development`;
+        const compareUrl = `${GITHUB_URL}/compare/${latestStableRelease?.tag_name}...development`;
         return (
             <Stack gap="md">
                 {releaseOptions.length > 1 && (
@@ -355,7 +356,7 @@ const ReleaseNotesContent = ({ onDismiss, version }: ReleaseNotesContentProps) =
             <Group justify="flex-end">
                 <Button
                     component="a"
-                    href={`https://github.com/jeffvli/feishin/releases/tag/${toTag(selectedVersion)}`}
+                    href={`${GITHUB_URL}/releases/tag/${toTag(selectedVersion)}`}
                     onClick={onDismiss}
                     rightSection={<Icon icon="externalLink" />}
                     target="_blank"

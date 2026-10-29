@@ -3,13 +3,13 @@ import { ipcMain } from 'electron';
 
 import log from '/@/main/logger';
 
-const FEISHIN_DISCORD_APPLICATION_ID = '1165957668758900787';
-
 let client: Client | null = null;
 
+// Everyone uses their own Discord application: its name and icon are what Discord shows
 const createClient = async (clientId?: string) => {
+    if (!clientId?.trim()) throw new Error('Discord Application ID is not set');
     client = new Client({
-        clientId: clientId || FEISHIN_DISCORD_APPLICATION_ID,
+        clientId: clientId.trim(),
     });
 
     await client.login();

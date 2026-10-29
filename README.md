@@ -7,10 +7,10 @@
 **Музыкальный плеер для своей музыки, YouTube и Twitch — на компьютере и Android. Без чужих серверов: компьютер сам становится сервером для телефона.**
 
 <p>
-  <img src="https://img.shields.io/github/last-commit/tesutavt/TesuPlayer?style=for-the-badge&labelColor=363a4f&color=b7bdf8&label=Обновлено" alt="Last commit"/>
-  <img src="https://img.shields.io/github/repo-size/tesutavt/TesuPlayer?style=for-the-badge&labelColor=363a4f&color=c6a0f6&label=Размер" alt="Repo size"/>
-  <img src="https://img.shields.io/github/stars/tesutavt/TesuPlayer?style=for-the-badge&labelColor=363a4f&color=eed49f&label=Звёзды" alt="Stars"/>
-  <img src="https://img.shields.io/github/license/tesutavt/TesuPlayer?style=for-the-badge&labelColor=363a4f&color=a6da95&label=Лицензия" alt="License"/>
+  <img src="https://img.shields.io/github/last-commit/tesutavt/feishin?style=for-the-badge&labelColor=363a4f&color=b7bdf8&label=Обновлено" alt="Last commit"/>
+  <img src="https://img.shields.io/github/repo-size/tesutavt/feishin?style=for-the-badge&labelColor=363a4f&color=c6a0f6&label=Размер" alt="Repo size"/>
+  <img src="https://img.shields.io/github/stars/tesutavt/feishin?style=for-the-badge&labelColor=363a4f&color=eed49f&label=Звёзды" alt="Stars"/>
+  <img src="https://img.shields.io/github/license/tesutavt/feishin?style=for-the-badge&labelColor=363a4f&color=a6da95&label=Лицензия" alt="License"/>
 </p>
 
 <img src="https://img.shields.io/badge/статус-в%20разработке-f5a97f?style=flat-square&labelColor=363a4f" alt="Status"/>
@@ -18,7 +18,7 @@
 
 <br/><br/>
 
-[📦 Релизы](https://github.com/tesutavt/TesuPlayer/releases) · [🐛 Сообщить об ошибке](https://github.com/tesutavt/TesuPlayer/issues) · [💡 Предложить идею](https://github.com/tesutavt/TesuPlayer/issues) · [🎵 Оригинал — Feishin](https://github.com/jeffvli/feishin)
+[📦 Релизы](https://github.com/tesutavt/feishin/releases) · [🐛 Сообщить об ошибке](https://github.com/tesutavt/feishin/issues) · [💡 Предложить идею](https://github.com/tesutavt/feishin/issues) · [🎵 Оригинал — Feishin](https://github.com/jeffvli/feishin)
 
 </div>
 
@@ -92,7 +92,7 @@ TesuPlayer — обычный музыкальный плеер: открыл, �
 
 ### Готовые сборки
 
-Скачайте из [Релизов](https://github.com/tesutavt/TesuPlayer/releases): `TesuPlayer-*-win-x64.exe` для Windows или `TesuPlayer-*.apk` для Android (разрешите установку из неизвестных источников).
+Скачайте из [Релизов](https://github.com/tesutavt/feishin/releases): `TesuPlayer-*-win-x64.exe` для Windows или `TesuPlayer-*.apk` для Android (разрешите установку из неизвестных источников).
 
 ### Телефон + компьютер
 
@@ -105,7 +105,7 @@ TesuPlayer — обычный музыкальный плеер: открыл, �
 **Требования:** Node.js 22+, pnpm 11
 
 ```bash
-git clone https://github.com/tesutavt/TesuPlayer.git
+git clone https://github.com/tesutavt/feishin.git
 cd TesuPlayer
 pnpm install
 pnpm dev                 # режим разработки

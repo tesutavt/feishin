@@ -35,7 +35,7 @@ object Lyrics {
     }
 
     private fun get(url: okhttp3.HttpUrl): String? {
-        val request = Request.Builder().url(url).header("User-Agent", "LRCGET v0.2.0 (https://github.com/tesutavt/TesuPlayer)").build()
+        val request = Request.Builder().url(url).header("User-Agent", "LRCGET v0.2.0 (https://github.com/tesutavt/feishin)").build()
         return Http.newCall(request).execute().use { r -> if (r.isSuccessful) r.body?.string() else if (r.code == 503) "503" else null }
     }
 

@@ -39,12 +39,6 @@ export const UpdateSettings = memo(() => {
                             }),
                             value: 'beta',
                         },
-                        {
-                            label: t('setting.releaseChannel', {
-                                context: 'optionAlpha',
-                            }),
-                            value: 'alpha',
-                        },
                     ]}
                     defaultValue={settings.releaseChannel || 'latest'}
                     onChange={(value) => {

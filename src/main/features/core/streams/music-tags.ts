@@ -102,6 +102,47 @@ const lookupItunes = async (
     }
 };
 
+const publicCovers = new Map<string, null | string>();
+
+/** A public https album cover (iTunes catalogue) for Discord, cached */
+export const findPublicCover = async (
+    artist: string,
+    album: string,
+    title: string,
+): Promise<null | string> => {
+    const key = `${artist}|${album}|${title}`.toLowerCase();
+    if (publicCovers.has(key)) return publicCovers.get(key)!;
+    let url: null | string = null;
+    const search = async (term: string, entity: 'album' | 'song') => {
+        const response = await net.fetch(
+            `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=${entity}&media=music&limit=10`,
+        );
+        if (!response.ok) return [];
+        return ((await response.json()) as { results?: any[] }).results ?? [];
+    };
+    try {
+        if (album && album !== 'YouTube') {
+            const albums = await search(`${artist} ${album}`, 'album');
+            const hit = albums.find(
+                (r) => similar(r.artistName, artist) && similar(r.collectionName, album),
+            );
+            url = hit?.artworkUrl100 ?? null;
+        }
+        if (!url && title) {
+            const songs = await search(`${artist} ${title}`, 'song');
+            const hit = songs.find(
+                (r) => similar(r.artistName, artist) && similar(r.trackName, title),
+            );
+            url = hit?.artworkUrl100 ?? null;
+        }
+    } catch (error) {
+        log.warn('Public cover lookup failed', { error: String(error) });
+    }
+    url = url?.replace(/\/\d+x\d+bb\./, '/512x512bb.') ?? null;
+    publicCovers.set(key, url);
+    return url;
+};
+
 /**
  * YouTube Music data from yt-dlp first, then the iTunes catalogue,
  * otherwise a single (album = title).

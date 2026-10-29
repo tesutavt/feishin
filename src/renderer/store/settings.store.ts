@@ -1323,13 +1323,13 @@ const initialState: SettingsState = {
         enabled: false,
     },
     discord: {
-        clientId: '1165957668758900787',
-        displayType: DiscordDisplayType.FEISHIN,
+        clientId: '',
+        displayType: DiscordDisplayType.SONG_NAME,
         enabled: false,
         linkType: DiscordLinkType.NONE,
         showAsListening: false,
         showPaused: true,
-        showServerImage: false,
+        showServerImage: true,
         showStateIcon: true,
     },
     font: {
@@ -2944,6 +2944,17 @@ export const useSettingsStore = createWithEqualityFn<SettingsSlice>()(
                     state.tab = 'library';
                 }
 
+                if (version < 39) {
+                    // Discord: the song instead of the app name, the cover instead of the logo;
+                    // the original project's application id is not ours
+                    if (state.discord?.clientId === '1165957668758900787')
+                        state.discord.clientId = '';
+                    if (state.discord?.displayType === DiscordDisplayType.FEISHIN) {
+                        state.discord.displayType = DiscordDisplayType.SONG_NAME;
+                    }
+                    if (state.discord) state.discord.showServerImage = true;
+                }
+
                 if (version < 38) {
                     const devices = state.general.sidebarItems.find(
                         (item: any) => item.id === 'Devices',
@@ -2980,7 +2991,7 @@ export const useSettingsStore = createWithEqualityFn<SettingsSlice>()(
                 return persistedState;
             },
             name: 'store_settings',
-            version: 38,
+            version: 39,
         },
     ),
 );
