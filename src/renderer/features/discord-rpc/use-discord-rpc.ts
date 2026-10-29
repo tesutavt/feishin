@@ -282,6 +282,7 @@ export const useDiscordRpc = () => {
                             song.albumArtists[0]?.name || song.artists[0]?.name || '',
                             song.album || '',
                             song.name,
+                            song.id,
                         );
                         if (cover) activity.largeImageKey = cover;
                     } catch {

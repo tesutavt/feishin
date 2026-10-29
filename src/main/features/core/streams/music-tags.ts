@@ -109,8 +109,10 @@ export const findPublicCover = async (
     artist: string,
     album: string,
     title: string,
+    /** YouTube page of a downloaded track: its thumbnail is the fallback */
+    sourceUrl?: string,
 ): Promise<null | string> => {
-    const key = `${artist}|${album}|${title}`.toLowerCase();
+    const key = `${artist}|${album}|${title}|${sourceUrl ?? ''}`.toLowerCase();
     if (publicCovers.has(key)) return publicCovers.get(key)!;
     let url: null | string = null;
     const search = async (term: string, entity: 'album' | 'song') => {
@@ -139,6 +141,9 @@ export const findPublicCover = async (
         log.warn('Public cover lookup failed', { error: String(error) });
     }
     url = url?.replace(/\/\d+x\d+bb\./, '/512x512bb.') ?? null;
+    // not in the iTunes catalogue (covers, VTubers, J-pop...): the video's thumbnail is public too
+    const videoId = sourceUrl && /(?:[?&]v=|youtu\.be\/)([\w-]{6,})/.exec(sourceUrl)?.[1];
+    if (!url && videoId) url = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
     publicCovers.set(key, url);
     return url;
 };

@@ -25,6 +25,8 @@ export const AUDIO_EXTENSIONS = new Set([
     '.wv',
 ]);
 
+const SCAN_VERSION = 2;
+
 const COVER_NAMES = ['cover', 'folder', 'front', 'album', 'albumart'];
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 
@@ -79,7 +81,11 @@ export interface LocalSong {
     mtimeMs: number;
     path: string;
     sampleRate: number;
+    /** index format; older entries are read again */
+    scanVersion?: number;
     size: number;
+    /** the YouTube video a download came from (written to the comment tag) */
+    sourceUrl?: string;
     title: string;
     track: number;
     year: number;
@@ -277,7 +283,10 @@ class Library {
                         const stat = await fs.stat(filePath);
                         const cached = previous.get(filePath);
                         result.push(
-                            cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size
+                            cached &&
+                                cached.mtimeMs === stat.mtimeMs &&
+                                cached.size === stat.size &&
+                                cached.scanVersion === SCAN_VERSION
                                 ? cached
                                 : await this.readSong(filePath, stat),
                         );
@@ -350,6 +359,10 @@ class Library {
                     hasPicture: file.getPictures().length > 0,
                     lyrics: lyrics.length ? lyrics.map((l) => l.text).join('\n\n') : undefined,
                     sampleRate: audio?.sampleRate ?? 0,
+                    scanVersion: SCAN_VERSION,
+                    sourceUrl: /youtube\.com|youtu\.be/.test(first(p.comment))
+                        ? first(p.comment)
+                        : undefined,
                     title: first(p.title) || fileName,
                     track: toInt(first(p.trackNumber)),
                     year: toInt(first(p.date).slice(0, 4)),

@@ -362,8 +362,15 @@ const retagDownloads = async () => {
 
 ipcMain.handle('streams-retag-downloads', () => retagDownloads());
 
-ipcMain.handle('streams-public-cover', (_event, artist: string, album: string, title: string) =>
-    findPublicCover(artist, album, title),
+ipcMain.handle(
+    'streams-public-cover',
+    (_event, artist: string, album: string, title: string, songId?: string) =>
+        findPublicCover(
+            artist,
+            album,
+            title,
+            songId ? library.songs.get(songId)?.sourceUrl : undefined,
+        ),
 );
 
 ipcMain.handle('streams-download-audio', (_event, url: string) => downloadAudio(url));

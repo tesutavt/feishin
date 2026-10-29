@@ -20,8 +20,13 @@ const registerYoutube = (items: ExternalSearchResult[]): Promise<string[]> =>
 const retagDownloads = (): Promise<{ fixed: number; total: number }> =>
     ipcRenderer.invoke('streams-retag-downloads');
 
-const publicCover = (artist: string, album: string, title: string): Promise<null | string> =>
-    ipcRenderer.invoke('streams-public-cover', artist, album, title);
+const publicCover = (
+    artist: string,
+    album: string,
+    title: string,
+    songId?: string,
+): Promise<null | string> =>
+    ipcRenderer.invoke('streams-public-cover', artist, album, title, songId);
 
 const resolve = (url: string): Promise<ResolvedExternalStream> =>
     ipcRenderer.invoke('streams-resolve', url);
