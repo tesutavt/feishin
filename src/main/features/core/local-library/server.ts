@@ -5,6 +5,13 @@ import { nanoid } from 'nanoid/non-secure';
 import path from 'path';
 
 import { library, LocalAlbum, LocalArtist, LocalSong } from './library';
+import {
+    getYoutubeSong,
+    getYoutubeStreamUrl,
+    getYoutubeThumbnail,
+    isYoutubeId,
+    YoutubeSong,
+} from './youtube';
 
 import log from '/@/main/logger';
 
@@ -101,6 +108,30 @@ const songJson = (s: LocalSong) => {
         year: s.year || undefined,
     };
 };
+
+const youtubeSongJson = (s: YoutubeSong) => ({
+    album: 'YouTube',
+    albumArtists: [],
+    artist: s.artist,
+    artists: [{ id: `yt-artist-${s.artist}`, name: s.artist }],
+    contentType: 'audio/mp4',
+    coverArt: s.id,
+    created: new Date().toISOString(),
+    discNumber: 1,
+    duration: s.duration,
+    id: s.id,
+    isDir: false,
+    isVideo: false,
+    parent: '',
+    path: `https://www.youtube.com/watch?v=${s.videoId}`,
+    playCount: u().playCounts[s.id] ?? 0,
+    size: 0,
+    starred: u().starred[s.id],
+    suffix: 'm4a',
+    title: s.title,
+    type: 'music',
+    userRating: u().ratings[s.id],
+});
 
 const albumJson = (a: LocalAlbum, withSongs = false) => ({
     album: a.name,
@@ -484,8 +515,10 @@ const methods: Record<string, (p: Params) => object | Promise<object>> = {
             .map(songJson);
         return { similarSongs: { song }, similarSongs2: { song } };
     },
-    getSong: (p) => {
-        const song = library.songs.get(p.get('id') ?? '');
+    getSong: async (p) => {
+        const id = p.get('id') ?? '';
+        if (isYoutubeId(id)) return { song: youtubeSongJson(await getYoutubeSong(id)) };
+        const song = library.songs.get(id);
         if (!song) throw new ApiError(70, 'Song not found');
         return { song: songJson(song) };
     },
@@ -761,6 +794,17 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
                 return;
             }
             throw new ApiError(40, 'Wrong username or password');
+        }
+        const requestedId = params.get('id') ?? '';
+        if (isYoutubeId(requestedId) && ['download', 'getCoverArt', 'stream'].includes(method)) {
+            // the player follows the redirect: seeking works, Chromium resolves it over DoH
+            const location =
+                method === 'getCoverArt'
+                    ? getYoutubeThumbnail(requestedId)
+                    : await getYoutubeStreamUrl(requestedId);
+            res.writeHead(302, { ...CORS, 'Cache-Control': 'no-store', Location: location });
+            res.end();
+            return;
         }
         if (method === 'stream' || method === 'download') {
             const song = library.songs.get(params.get('id') ?? '');

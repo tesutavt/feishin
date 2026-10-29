@@ -7,7 +7,10 @@ import styles from './search-online-section.module.css';
 import { useRadioControls } from '/@/renderer/features/radio/hooks/use-radio-player';
 import { CollapsibleCommandGroup } from '/@/renderer/features/search/components/collapsible-command-group';
 import { CommandItemSelectable } from '/@/renderer/features/search/components/command-item-selectable';
-import { downloadYoutubeAudio } from '/@/renderer/features/streams/components/streams-panel';
+import {
+    downloadYoutubeAudio,
+    playYoutube,
+} from '/@/renderer/features/streams/components/streams-panel';
 import { Box } from '/@/shared/components/box/box';
 import { Button } from '/@/shared/components/button/button';
 import { Spinner } from '/@/shared/components/spinner/spinner';
@@ -113,7 +116,7 @@ export function SearchOnlineSection({
                 <CommandItemSelectable
                     key={`search-youtube-${item.id}`}
                     onSelect={() => {
-                        play(item.url, item.title);
+                        playYoutube(results, results.indexOf(item));
                         onSelectResult();
                     }}
                     value={`search-youtube-${item.id}`}

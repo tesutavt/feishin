@@ -5,6 +5,7 @@ import path from 'path';
 import { TagLib } from 'taglib-wasm';
 
 import { downloadsDir, library } from '/@/main/features/core/local-library/library';
+import { registerYoutube, setYoutubeResolver } from '/@/main/features/core/local-library/youtube';
 import { getDohProxyUrl } from '/@/main/features/core/streams/doh-proxy';
 import log from '/@/main/logger';
 import {
@@ -198,6 +199,7 @@ const searchYoutube = async (query: string, limit = 20): Promise<ExternalSearchR
         .map((entry) => ({
             duration: typeof entry.duration === 'number' ? entry.duration : null,
             id: entry.id,
+            isLive: entry.live_status === 'is_live' || entry.is_live === true,
             thumbnail: pickThumbnail(entry),
             title: entry.title || entry.id,
             uploader: entry.channel || entry.uploader || null,
@@ -358,3 +360,38 @@ app.whenReady().then(() =>
 ipcMain.handle('streams-resolve', (_event, url: string) => resolveStream(url));
 
 ipcMain.handle('streams-search-youtube', (_event, query: string) => searchYoutube(query));
+
+/** Search results become library songs (yt-<id>) so they can be queued and seeked */
+ipcMain.handle('streams-register-youtube', (_event, items: ExternalSearchResult[]) =>
+    registerYoutube(
+        items.map((item) => ({
+            artist: item.uploader || 'YouTube',
+            duration: item.duration ?? 0,
+            thumbnail: item.thumbnail,
+            title: item.title,
+            videoId: item.id,
+        })),
+    ),
+);
+
+setYoutubeResolver(async (videoId) => {
+    const binary = await requireYtDlp();
+    const output = await runOnline(binary, [
+        '-J',
+        '--no-playlist',
+        '--no-warnings',
+        '-f',
+        DOWNLOAD_FORMAT,
+        `https://www.youtube.com/watch?v=${videoId}`,
+    ]);
+    const info = JSON.parse(output);
+    const url: string | undefined = info.url ?? info.requested_formats?.[0]?.url;
+    if (!url) throw new Error('yt-dlp returned no stream');
+    return {
+        artist: String(info.uploader || info.channel || 'YouTube').replace(/ - Topic$/, ''),
+        duration: Math.round(Number(info.duration) || 0),
+        thumbnail: pickThumbnail(info),
+        title: info.title || videoId,
+        url,
+    };
+});

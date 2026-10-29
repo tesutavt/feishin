@@ -28,6 +28,9 @@ interface SearchHeaderProps {
     navigationId: string;
 }
 
+/** Search tab with YouTube and Twitch results */
+export const ONLINE_SEARCH = 'online';
+
 export const SearchHeader = ({ navigationId }: SearchHeaderProps) => {
     const { t } = useTranslation();
     const { itemType } = useParams() as { itemType: LibraryItem };
@@ -119,8 +122,26 @@ export const SearchHeader = ({ navigationId }: SearchHeaderProps) => {
                         >
                             {t('entity.artist', { count: 2 })}
                         </Button>
+                        <Button
+                            component={Link}
+                            fw={600}
+                            replace
+                            size="compact-md"
+                            state={{ navigationId }}
+                            to={{
+                                pathname: generatePath(AppRoute.SEARCH, {
+                                    itemType: ONLINE_SEARCH,
+                                }),
+                                search: searchParams.toString(),
+                            }}
+                            variant={(itemType as string) === ONLINE_SEARCH ? 'filled' : 'default'}
+                        >
+                            YouTube / Twitch
+                        </Button>
                     </ButtonGroup>
-                    <ListConfigMenu {...listConfigMenuProps[itemType]} />
+                    {(itemType as string) !== ONLINE_SEARCH && (
+                        <ListConfigMenu {...listConfigMenuProps[itemType]} />
+                    )}
                 </Flex>
             </FilterBar>
         </Stack>

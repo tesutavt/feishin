@@ -1029,7 +1029,6 @@ export enum SidebarItem {
     RADIO = 'Radio',
     SEARCH = 'Search',
     SETTINGS = 'Settings',
-    STREAMS = 'Streams',
     TRACKS = 'Tracks',
 }
 
@@ -1232,12 +1231,6 @@ export const sidebarItems: SidebarItemType[] = [
         id: 'Collections',
         label: i18n.t('page.sidebar.collections'),
         route: '',
-    },
-    {
-        disabled: false,
-        id: 'Streams',
-        label: 'YouTube / Twitch',
-        route: AppRoute.STREAMS,
     },
     {
         disabled: false,
@@ -2948,15 +2941,14 @@ export const useSettingsStore = createWithEqualityFn<SettingsSlice>()(
                 }
 
                 if (version < 35) {
-                    if (!state.general.sidebarItems.some((item: any) => item.id === 'Streams')) {
-                        state.general.sidebarItems.unshift({
-                            disabled: false,
-                            id: 'Streams',
-                            label: 'YouTube / Twitch',
-                            route: AppRoute.STREAMS,
-                        });
-                    }
                     state.tab = 'library';
+                }
+
+                if (version < 37) {
+                    // YouTube / Twitch moved into the global search
+                    state.general.sidebarItems = state.general.sidebarItems.filter(
+                        (item: any) => item.id !== 'Streams',
+                    );
                 }
 
                 if (version < 36) {
@@ -2973,7 +2965,7 @@ export const useSettingsStore = createWithEqualityFn<SettingsSlice>()(
                 return persistedState;
             },
             name: 'store_settings',
-            version: 36,
+            version: 37,
         },
     ),
 );

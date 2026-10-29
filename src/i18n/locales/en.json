@@ -1673,7 +1673,8 @@
         "channelUnknown": "no such channel",
         "favorites": "Favourites",
         "favoritesEmpty": "Press ☆ on a channel or a video. Favourites are saved to Radio stations and sync to your other devices.",
-        "saved": "\"{{name}}\" added to favourites (Radio stations)"
+        "saved": "\"{{name}}\" added to favourites (Radio stations)",
+        "addToQueue": "Add to queue"
     },
     "library": {
         "title": "My music",

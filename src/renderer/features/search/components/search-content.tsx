@@ -9,11 +9,13 @@ import {
     AlbumArtistListView,
     OverrideAlbumArtistListQuery,
 } from '/@/renderer/features/artists/components/album-artist-list-content';
+import { ONLINE_SEARCH } from '/@/renderer/features/search/components/search-header';
 import { AnimatedPage } from '/@/renderer/features/shared/components/animated-page';
 import {
     OverrideSongListQuery,
     SongListView,
 } from '/@/renderer/features/songs/components/song-list-content';
+import { OnlineSearchResults } from '/@/renderer/features/streams/components/streams-panel';
 import { useListSettings } from '/@/renderer/store';
 import { Spinner } from '/@/shared/components/spinner/spinner';
 import {
@@ -34,9 +36,15 @@ export const SearchContent = () => {
                 {itemType === LibraryItem.ALBUM && <AlbumSearch />}
                 {itemType === LibraryItem.SONG && <SongSearch />}
                 {itemType === LibraryItem.ALBUM_ARTIST && <ArtistSearch />}
+                {(itemType as string) === ONLINE_SEARCH && <OnlineSearch />}
             </Suspense>
         </AnimatedPage>
     );
+};
+
+const OnlineSearch = () => {
+    const [searchParams] = useSearchParams();
+    return <OnlineSearchResults query={searchParams.get('query') || ''} />;
 };
 
 const AlbumSearch = () => {

@@ -9,6 +9,7 @@ export interface DownloadedTrack {
 export interface ExternalSearchResult {
     duration: null | number;
     id: string;
+    isLive?: boolean;
     thumbnail: null | string;
     title: string;
     uploader: null | string;

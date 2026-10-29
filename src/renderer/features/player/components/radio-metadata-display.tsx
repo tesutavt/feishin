@@ -70,7 +70,7 @@ export const RadioMetadataDisplay = ({
                         isNoSelect
                         overflow="hidden"
                         size="md"
-                        to={external ? AppRoute.STREAMS : AppRoute.RADIO}
+                        to={AppRoute.RADIO}
                     >
                         {stationName || '—'}
                     </Text>

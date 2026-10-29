@@ -74,8 +74,6 @@ const FolderListRoute = lazy(() => import('/@/renderer/features/folders/routes/f
 
 const RadioListRoute = lazy(() => import('/@/renderer/features/radio/routes/radio-list-route'));
 
-const StreamsRoute = lazy(() => import('/@/renderer/features/streams/routes/streams-route'));
-
 const DevicesRoute = lazy(() => import('/@/renderer/features/devices/routes/devices-route'));
 
 const SearchRoute = lazy(() => import('/@/renderer/features/search/routes/search-route'));
@@ -299,7 +297,6 @@ export const AppRouter = () => {
                                             path={AppRoute.PLAYLISTS}
                                         />
                                         <Route element={<RadioListRoute />} path={AppRoute.RADIO} />
-                                        <Route element={<StreamsRoute />} path={AppRoute.STREAMS} />
                                         <Route element={<DevicesRoute />} path={AppRoute.DEVICES} />
                                         <Route
                                             element={<PlaylistDetailSongListRoute />}

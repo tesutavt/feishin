@@ -14,6 +14,9 @@ const downloadYtDlp = (): Promise<YtDlpStatus> => ipcRenderer.invoke('streams-yt
 const downloadAudio = (url: string): Promise<DownloadedTrack> =>
     ipcRenderer.invoke('streams-download-audio', url);
 
+const registerYoutube = (items: ExternalSearchResult[]): Promise<string[]> =>
+    ipcRenderer.invoke('streams-register-youtube', items);
+
 const resolve = (url: string): Promise<ResolvedExternalStream> =>
     ipcRenderer.invoke('streams-resolve', url);
 
@@ -24,6 +27,7 @@ export const streams = {
     downloadAudio,
     downloadYtDlp,
     getYtDlpStatus,
+    registerYoutube,
     resolve,
     searchYoutube,
 };
