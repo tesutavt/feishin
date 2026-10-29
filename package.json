@@ -1,6 +1,6 @@
 {
     "name": "tesuplayer",
-    "version": "1.17.1",
+    "version": "1.17.2",
     "description": "TesuPlayer - self-hosted music player with YouTube and Twitch (fork of Feishin).",
     "keywords": [
         "subsonic",
