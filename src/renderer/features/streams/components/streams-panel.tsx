@@ -70,6 +70,20 @@ export const YtDlpStatusLine = () => {
     );
 };
 
+/** YouTube -> tagged m4a in the library, with toasts */
+export const downloadYoutubeAudio = async (url: string, t: (key: string) => string) => {
+    toast.info({ message: t('streams.downloadStarted') });
+    try {
+        const track = await window.api.streams.downloadAudio(url);
+        toast.success({
+            message: `${track.artist} - ${track.title}`,
+            title: t('streams.downloadDone'),
+        });
+    } catch (error) {
+        toast.error({ message: (error as Error).message, title: t('streams.downloadFailed') });
+    }
+};
+
 /** Downloads YouTube audio into the library; tracks the links in progress */
 const useAudioDownload = () => {
     const { t } = useTranslation();

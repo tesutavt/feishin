@@ -5,6 +5,7 @@ import { GoToCommands } from '/@/renderer/features/search/components/go-to-comma
 import { HomeCommands } from '/@/renderer/features/search/components/home-commands';
 import { SearchAlbumArtistsSection } from '/@/renderer/features/search/components/search-album-artists-section';
 import { SearchAlbumsSection } from '/@/renderer/features/search/components/search-albums-section';
+import { SearchOnlineSection } from '/@/renderer/features/search/components/search-online-section';
 import { SearchSongsSection } from '/@/renderer/features/search/components/search-songs-section';
 import { useAppStore } from '/@/renderer/store';
 import { ActionIcon } from '/@/shared/components/action-icon/action-icon';
@@ -27,6 +28,7 @@ interface CommandPaletteProps {
 const SEARCH_SECTION_IDS = {
     albums: 'albums',
     artists: 'artists',
+    online: 'online',
     tracks: 'tracks',
 } as const;
 
@@ -117,6 +119,18 @@ function CommandPaletteSearch({
                             setSearchSectionExpanded(
                                 SEARCH_SECTION_IDS.tracks,
                                 !(searchSectionsExpanded[SEARCH_SECTION_IDS.tracks] ?? true),
+                            )
+                        }
+                        query={query}
+                    />
+                    <SearchOnlineSection
+                        expanded={searchSectionsExpanded[SEARCH_SECTION_IDS.online] ?? true}
+                        isHome={isHome}
+                        onSelectResult={onSelectResult}
+                        onToggle={() =>
+                            setSearchSectionExpanded(
+                                SEARCH_SECTION_IDS.online,
+                                !(searchSectionsExpanded[SEARCH_SECTION_IDS.online] ?? true),
                             )
                         }
                         query={query}

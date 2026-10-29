@@ -1253,6 +1253,15 @@ if (!singleInstance) {
                 });
             });
 
+            // DNS-over-HTTPS with fallback: YouTube is often blocked only at the DNS level
+            app.configureHostResolver({
+                secureDnsMode: 'automatic',
+                secureDnsServers: [
+                    'https://cloudflare-dns.com/dns-query',
+                    'https://dns.google/dns-query',
+                ],
+            });
+
             createWindow();
             if (store.get('window_enable_tray', true)) {
                 createTray();

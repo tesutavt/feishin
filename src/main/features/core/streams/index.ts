@@ -5,6 +5,7 @@ import path from 'path';
 import { TagLib } from 'taglib-wasm';
 
 import { downloadsDir, library } from '/@/main/features/core/local-library/library';
+import { getDohProxyUrl } from '/@/main/features/core/streams/doh-proxy';
 import log from '/@/main/logger';
 import {
     type DownloadedTrack,
@@ -51,6 +52,10 @@ const run = (binary: string, args: string[], timeout = 60_000) =>
             },
         );
     });
+
+/** Network calls go through the DoH proxy (YouTube is often DNS-blocked) */
+const runOnline = async (binary: string, args: string[], timeout?: number) =>
+    run(binary, ['--proxy', await getDohProxyUrl(), ...args], timeout);
 
 const exists = (file: string) =>
     fs.access(file).then(
@@ -104,7 +109,7 @@ const autoUpdate = async (binary: string) => {
         const stamp = Number(await fs.readFile(updateStampPath(), 'utf8').catch(() => '0'));
         if (Date.now() - stamp < UPDATE_INTERVAL) return;
         await fs.writeFile(updateStampPath(), String(Date.now()));
-        const output = await run(binary, ['-U'], 120_000);
+        const output = await runOnline(binary, ['-U'], 120_000);
         log.info('yt-dlp update check', { output: output.trim().split('\n').pop() });
     } catch (error) {
         log.warn('yt-dlp update failed', { error: String(error) });
@@ -151,7 +156,7 @@ const resolveStream = async (url: string): Promise<ResolvedExternalStream> => {
     }
 
     const binary = await requireYtDlp();
-    const output = await run(binary, [
+    const output = await runOnline(binary, [
         '-J',
         '--no-playlist',
         '--no-warnings',
@@ -180,7 +185,7 @@ const resolveStream = async (url: string): Promise<ResolvedExternalStream> => {
 
 const searchYoutube = async (query: string, limit = 20): Promise<ExternalSearchResult[]> => {
     const binary = await requireYtDlp();
-    const output = await run(binary, [
+    const output = await runOnline(binary, [
         '-J',
         '--flat-playlist',
         '--no-warnings',
@@ -270,7 +275,7 @@ const downloadAudio = async (pageUrl: string): Promise<DownloadedTrack> => {
     const dir = path.join(downloadsDir(), 'YouTube');
     await fs.mkdir(dir, { recursive: true });
 
-    const output = await run(
+    const output = await runOnline(
         binary,
         [
             '-J',

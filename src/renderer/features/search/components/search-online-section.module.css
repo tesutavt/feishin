@@ -1,0 +1,20 @@
+.item {
+    display: flex;
+    gap: var(--theme-spacing-sm);
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+}
+
+.thumb {
+    flex-shrink: 0;
+    width: 64px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: var(--theme-radius-sm);
+}
+
+.info {
+    flex: 1;
+    min-width: 0;
+}
