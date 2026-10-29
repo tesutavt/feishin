@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '/@/renderer/api';
+import { downloadYoutubeAudio } from '/@/renderer/features/streams/components/streams-panel';
 import { useCurrentServer } from '/@/renderer/store';
 import { ContextMenu } from '/@/shared/components/context-menu/context-menu';
 
@@ -19,6 +20,11 @@ export const DownloadAction = ({ ids }: DownloadActionProps) => {
     const onSelect = useCallback(async () => {
         try {
             for (const id of ids) {
+                // YouTube songs: the same smart download as the search page (tags, cover, sorting)
+                if (id.startsWith('yt-') && isElectron()) {
+                    downloadYoutubeAudio(`https://www.youtube.com/watch?v=${id.slice(3)}`, t);
+                    continue;
+                }
                 const downloadUrl = api.controller.getDownloadUrl({
                     apiClientProps: { serverId: server.id },
                     query: { id },
@@ -33,7 +39,7 @@ export const DownloadAction = ({ ids }: DownloadActionProps) => {
         } catch (error) {
             console.error('Failed to download items:', error);
         }
-    }, [ids, server]);
+    }, [ids, server, t]);
 
     return (
         <ContextMenu.Item disabled={ids.length > 1} leftIcon="download" onSelect={onSelect}>

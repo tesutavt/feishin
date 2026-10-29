@@ -1,4 +1,5 @@
 import { t } from 'i18next';
+import isElectron from 'is-electron';
 import { useCallback, useEffect, useMemo, useState, WheelEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -17,6 +18,7 @@ import {
 import { useSetRating } from '/@/renderer/features/shared/hooks/use-set-rating';
 import { useCreateFavorite } from '/@/renderer/features/shared/mutations/create-favorite-mutation';
 import { useDeleteFavorite } from '/@/renderer/features/shared/mutations/delete-favorite-mutation';
+import { downloadYoutubeAudio } from '/@/renderer/features/streams/components/streams-panel';
 import { useHotkeys } from '/@/renderer/hooks/use-hotkeys';
 import {
     AUTO_DJ_MODE,
@@ -100,6 +102,7 @@ export const RightControls = () => {
                 <SleepTimerButton />
                 <PlayerConfig />
                 <LyricsButton />
+                <YoutubeDownloadButton />
                 {showFavorites && <FavoriteButton />}
                 <QueueButton />
                 {playbackType === PlayerType.DLNA ? <DlnaVolumeButton /> : <VolumeButton />}
@@ -380,6 +383,34 @@ const QueueButton = () => {
                 handleToggleQueue();
             }}
             opened={popoverOpened}
+        />
+    );
+};
+
+/** The playing YouTube song -> tagged audio file in the library */
+const YoutubeDownloadButton = () => {
+    const currentSong = usePlayerSong();
+    const [busy, setBusy] = useState(false);
+    if (!isElectron() || !currentSong?.id?.startsWith('yt-')) return null;
+
+    return (
+        <ActionIcon
+            icon={busy ? 'spinner' : 'download'}
+            iconProps={{ size: 'lg' }}
+            onClick={async (e) => {
+                e.stopPropagation();
+                if (busy) return;
+                setBusy(true);
+                await downloadYoutubeAudio(
+                    `https://www.youtube.com/watch?v=${currentSong.id.slice(3)}`,
+                    t,
+                );
+                setBusy(false);
+            }}
+            role="button"
+            size="sm"
+            tooltip={{ label: t('streams.download'), openDelay: 0 }}
+            variant="subtle"
         />
     );
 };

@@ -38,6 +38,50 @@ class Prefs(context: Context) {
             sp.edit().putString("twitch", AppJson.encodeToString(ListSerializer(String.serializer()), value)).apply()
         }
 
+    private fun bool(key: String, default: Boolean) = sp.getBoolean(key, default)
+    private fun setBool(key: String, value: Boolean) = sp.edit().putBoolean(key, value).apply()
+
+    /** Settings that mirror the desktop app */
+    var lyricsEnabled: Boolean get() = bool("lyrics", true); set(v) = setBool("lyrics", v)
+    var lyricsFollow: Boolean get() = bool("lyrics_follow", true); set(v) = setBool("lyrics_follow", v)
+    var autoDj: Boolean get() = bool("auto_dj", false); set(v) = setBool("auto_dj", v)
+    var scrobble: Boolean get() = bool("scrobble", true); set(v) = setBool("scrobble", v)
+    var speed: Float get() = sp.getFloat("speed", 1f); set(v) = sp.edit().putFloat("speed", v).apply()
+    var equalizerEnabled: Boolean get() = bool("eq", false); set(v) = setBool("eq", v)
+    var equalizerBands: List<Int>
+        get() = sp.getString("eq_bands", null)?.split(',')?.mapNotNull { it.toIntOrNull() }.orEmpty()
+        set(v) = sp.edit().putString("eq_bands", v.joinToString(",")).apply()
+    var homeSections: List<HomeSection>
+        get() = sp.getString("home", null)?.split(',')?.mapNotNull { n -> HomeSection.entries.firstOrNull { it.name == n } }
+            ?: HomeSection.entries.toList()
+        set(v) = sp.edit().putString("home", v.joinToString(",") { it.name }).apply()
+
+    /** The queue survives a restart, like on the desktop */
+    var savedQueue: Pair<List<Track>, Pair<Int, Long>>?
+        get() = runCatching {
+            val tracks = AppJson.decodeFromString(ListSerializer(Track.serializer()), sp.getString("queue", null)!!)
+            tracks to (sp.getInt("queue_index", 0) to sp.getLong("queue_pos", 0))
+        }.getOrNull()
+        set(v) {
+            sp.edit().apply {
+                if (v == null) remove("queue") else {
+                    putString("queue", AppJson.encodeToString(ListSerializer(Track.serializer()), v.first))
+                    putInt("queue_index", v.second.first)
+                    putLong("queue_pos", v.second.second)
+                }
+            }.apply()
+        }
+
+    /** Equalizer description written by the playback service: "bands;min;max;freq1,freq2..." */
+    var equalizerInfo: String? get() = sp.getString("eq_info", null); set(v) = sp.edit().putString("eq_info", v).apply()
+
+    private val listeners = mutableListOf<android.content.SharedPreferences.OnSharedPreferenceChangeListener>()
+    fun listen(onChange: (String?) -> Unit) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key -> onChange(key) }
+        listeners += listener
+        sp.registerOnSharedPreferenceChangeListener(listener)
+    }
+
     /** Server library cached for offline browsing */
     fun cache(key: String, json: String) = sp.edit().putString("cache_$key", json).apply()
     fun cached(key: String): String? = sp.getString("cache_$key", null)
@@ -97,12 +141,19 @@ class Downloads(private val context: Context) {
         var url = track.streamUrl
         var ext = track.ext
         var cover = track.coverUrl
+        var saved = track
         val youtube = track.source == Source.YOUTUBE
         if (youtube) {
             val resolved = Streams.resolve(track.pageUrl ?: error("No link"), forDownload = true)
             url = resolved.url
             ext = resolved.ext
-            cover = cover ?: resolved.thumbnail
+            // album / artist / year / cover from the iTunes catalogue, a single otherwise
+            val tags = MusicTagsLookup.lookup(resolved.rawTitle, resolved.artist, track.coverUrl ?: resolved.thumbnail)
+            cover = tags.coverUrl
+            saved = track.copy(
+                title = tags.title, artist = tags.artist, album = tags.album, year = tags.year,
+                trackNumber = tags.trackNumber, genre = tags.genre, duration = resolved.duration.takeIf { it > 0 } ?: track.duration,
+            )
         }
         val request = DownloadManager.Request(Uri.parse(url ?: error("No stream")))
             .setTitle(track.title)
@@ -111,7 +162,9 @@ class Downloads(private val context: Context) {
         val file: File
         if (youtube) {
             // a regular music file in Music/TesuPlayer, visible to every player on the phone
-            val name = "TesuPlayer/" + safeName("${track.artist} - ${track.title}") + "." + (ext ?: "m4a")
+            val number = saved.trackNumber?.let { "%02d - ".format(it) }.orEmpty()
+            val name = "TesuPlayer/${safeName(saved.artist)}/${safeName(saved.album)}/" +
+                safeName("$number${saved.artist} - ${saved.title}") + "." + (ext ?: "m4a")
             request.setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, name)
             file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), name)
         } else {
@@ -122,7 +175,7 @@ class Downloads(private val context: Context) {
         val downloadId = dm.enqueue(request)
         val localCover = saveCover(track.id, cover)
         synchronized(this) {
-            save(_items.value + track.copy(localPath = file.absolutePath, downloadId = downloadId, coverUrl = localCover, ext = ext))
+            save(_items.value + saved.copy(localPath = file.absolutePath, downloadId = downloadId, coverUrl = localCover, ext = ext))
         }
     }
 

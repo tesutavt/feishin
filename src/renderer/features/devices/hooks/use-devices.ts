@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { createWithEqualityFn } from 'zustand/traditional';
 
+import { useRadioStore } from '/@/renderer/features/radio/hooks/use-radio-player';
 import { useAuthStore, usePlayerStoreBase } from '/@/renderer/store';
 import { useTimestampStoreBase } from '/@/renderer/store/timestamp.store';
 import { logger } from '/@/renderer/utils/logger';
@@ -61,6 +62,14 @@ export const tesuCall = async <T>(method: string, params: Record<string, string 
 
 const runCommand = (command: DeviceCommand) => {
     const player = usePlayerStoreBase.getState();
+    // radio / Twitch / YouTube live: commands go to the radio player
+    const radio = useRadioStore.getState();
+    if (radio.currentStreamUrl) {
+        if (command === 'pause') radio.actions.pause();
+        else if (command === 'play') radio.actions.play();
+        else if (command === 'stop') radio.actions.stop();
+        return;
+    }
     switch (command) {
         case 'next':
             player.mediaNext(false);
@@ -69,7 +78,7 @@ const runCommand = (command: DeviceCommand) => {
             player.mediaPause();
             break;
         case 'play':
-            player.mediaPlay();
+            if (player.player.status !== PlayerStatus.PLAYING) player.mediaTogglePlayPause();
             break;
         case 'previous':
             player.mediaPrevious(false);
@@ -91,22 +100,33 @@ export const useDeviceHeartbeat = (deviceName: string, enabled: boolean) => {
 
         const beat = async () => {
             const player = usePlayerStoreBase.getState();
-            const song = player.getCurrentSong();
+            const radio = useRadioStore.getState();
+            const onRadio = Boolean(radio.currentStreamUrl);
+            const song = onRadio ? undefined : player.getCurrentSong();
             const status = player.player.status;
+            const radioInfo = radio.metadata ?? radio.externalMetadata;
             try {
                 const result = await tesuCall<{
                     commands: DeviceCommand[];
                     devices: RemoteDevice[];
                 }>('tesuHeartbeat', {
+                    artist: onRadio
+                        ? (radioInfo?.artist ?? radio.stationName ?? undefined)
+                        : undefined,
                     deviceId: id,
                     deviceName,
                     id: song?.id,
                     position: String(Math.round(useTimestampStoreBase.getState().timestamp)),
-                    state: !song
-                        ? 'stopped'
-                        : status === PlayerStatus.PLAYING
-                          ? 'playing'
-                          : 'paused',
+                    state: onRadio
+                        ? radio.isPlaying
+                            ? 'playing'
+                            : 'paused'
+                        : !song
+                          ? 'stopped'
+                          : status === PlayerStatus.PLAYING
+                            ? 'playing'
+                            : 'paused',
+                    title: onRadio ? (radioInfo?.title ?? radio.stationName ?? 'Радио') : undefined,
                 });
                 result.commands.forEach(runCommand);
                 useDevicesStore.setState({ devices: result.devices });

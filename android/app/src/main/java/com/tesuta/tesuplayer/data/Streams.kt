@@ -17,6 +17,8 @@ data class ResolvedStream(
     val isLive: Boolean,
     val ext: String?,
     val duration: Long,
+    /** the video title as on YouTube */
+    val rawTitle: String = title,
 )
 
 /** YouTube and Twitch through yt-dlp (youtubedl-android). */
@@ -80,19 +82,36 @@ object Streams {
             thumbnail = thumbnail(info),
             isLive = info["is_live"]?.toString() == "true",
             ext = info.str("ext"),
+            rawTitle = info.str("title").orEmpty(),
             duration = info.long("duration") ?: (info["duration"]?.toString()?.toDoubleOrNull()?.toLong() ?: 0),
         )
     }
 
-    suspend fun searchYoutube(query: String, limit: Int = 25): List<Track> {
-        val result = runJson("-J", "--flat-playlist", "--no-warnings", url = "ytsearch$limit:$query")
+    suspend fun searchYoutube(query: String, limit: Int = 25): List<Track> =
+        entries(runJson("-J", "--flat-playlist", "--no-warnings", url = "ytsearch$limit:$query"))
+
+    fun videoId(track: Track): String? = track.pageUrl?.let { Regex("[?&]v=([\\w-]{6,})").find(it)?.groupValues?.get(1) }
+        ?: track.pageUrl?.let { Regex("youtu\\.be/([\\w-]{6,})").find(it)?.groupValues?.get(1) }
+
+    /** YouTube Mix (radio) of a video: Auto-DJ and "track radio" for YouTube songs */
+    suspend fun mix(track: Track, limit: Int = 30): List<Track> {
+        val id = videoId(track) ?: return emptyList()
+        return entries(
+            runJson("-J", "--flat-playlist", "--no-warnings", "--playlist-end", "$limit",
+                url = "https://www.youtube.com/watch?v=$id&list=RD$id"),
+        ).filter { it.id != "yt:$id" }
+    }
+
+    private fun entries(result: JsonObject): List<Track> {
         return result.arr("entries").mapNotNull { e ->
             val id = e.str("id") ?: return@mapNotNull null
             val page = e.str("url")?.takeIf { it.startsWith("http") } ?: "https://www.youtube.com/watch?v=$id"
+            // "Artist - Song (Official video)" -> artist + song: better lyrics and Auto-DJ
+            val (artist, title) = MusicTagsLookup.parse(e.str("title") ?: id, e.str("channel") ?: e.str("uploader").orEmpty())
             Track(
                 id = "yt:$id",
-                title = e.str("title") ?: id,
-                artist = e.str("channel") ?: e.str("uploader").orEmpty(),
+                title = title,
+                artist = artist,
                 duration = e["duration"]?.toString()?.toDoubleOrNull()?.toLong() ?: 0,
                 coverUrl = thumbnail(e) ?: "https://i.ytimg.com/vi/$id/hqdefault.jpg",
                 source = Source.YOUTUBE,

@@ -87,7 +87,7 @@ const DeviceCard = ({ device }: { device: RemoteDevice }) => {
                     <Button onClick={() => command('next')} size="xs" variant="default">
                         ⏭
                     </Button>
-                    {device.song && (
+                    {device.song?.id && (
                         <Button onClick={playHere} size="xs" variant="filled">
                             {t('devices.playHere')}
                         </Button>

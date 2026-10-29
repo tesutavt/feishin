@@ -5,11 +5,13 @@ import { useTranslation } from 'react-i18next';
 import styles from './streams-panel.module.css';
 
 import { api } from '/@/renderer/api';
+import { tesuCall } from '/@/renderer/features/devices/hooks/use-devices';
 import { radioQueries } from '/@/renderer/features/radio/api/radio-api';
 import { useRadioControls, useRadioStore } from '/@/renderer/features/radio/hooks/use-radio-player';
 import { useCreateRadioStation } from '/@/renderer/features/radio/mutations/create-radio-station-mutation';
 import { useDeleteRadioStation } from '/@/renderer/features/radio/mutations/delete-radio-station-mutation';
 import { useAuthStore, useCurrentServer, usePlayerStoreBase } from '/@/renderer/store';
+import { ActionIcon } from '/@/shared/components/action-icon/action-icon';
 import { Button } from '/@/shared/components/button/button';
 import { Group } from '/@/shared/components/group/group';
 import { Spinner } from '/@/shared/components/spinner/spinner';
@@ -181,6 +183,50 @@ const FavoriteButton = ({ name, url }: { name: string; url: string }) => {
         >
             {on ? '★' : '☆'}
         </Button>
+    );
+};
+
+const STARRED_KEY = ['streams', 'starred-song-ids'];
+
+/** Favourite YouTube video = a favourite song of the library (Favourites, synced to the phone) */
+const SongStarButton = ({ item }: { item: ExternalSearchResult }) => {
+    const { t } = useTranslation();
+    const queryClient = useQueryClient();
+    const id = `yt-${item.id}`;
+    const { data: starred } = useQuery({
+        queryFn: async () => {
+            const body = await tesuCall<{ starred2?: { song?: { id: string }[] } }>(
+                'getStarred2',
+                {},
+            );
+            return new Set((body.starred2?.song ?? []).map((song) => song.id));
+        },
+        queryKey: STARRED_KEY,
+        staleTime: 30_000,
+    });
+    const on = starred?.has(id) ?? false;
+
+    return (
+        <ActionIcon
+            icon="favorite"
+            iconProps={{ color: on ? 'primary' : undefined, fill: on ? 'primary' : undefined }}
+            onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                    await window.api.streams.registerYoutube([item]);
+                    await tesuCall(on ? 'unstar' : 'star', { id });
+                    toast.success({ message: on ? t('streams.unstarred') : t('streams.starred') });
+                    queryClient.invalidateQueries();
+                } catch (error) {
+                    toast.error({ message: (error as Error).message });
+                }
+            }}
+            tooltip={{
+                label: on ? t('streams.unstarred') : t('streams.starTrack'),
+                openDelay: 300,
+            }}
+            variant="default"
+        />
     );
 };
 
@@ -392,34 +438,35 @@ export const OnlineSearchResults = ({ query }: { query: string }) => {
                                     .join(' - ')}
                             </Text>
                         </div>
-                        <Button
-                            onClick={() => playYoutube(results, index)}
-                            size="xs"
-                            variant="filled"
-                        >
-                            {t('player.play')}
-                        </Button>
-                        {!item.isLive && (
-                            <>
-                                <Button
-                                    onClick={() => playYoutube([item], 0, Play.LAST)}
-                                    size="xs"
-                                    title={t('streams.addToQueue')}
-                                    variant="default"
-                                >
-                                    +
-                                </Button>
-                                <Button
-                                    loading={pending.has(item.url)}
-                                    onClick={() => download(item.url)}
-                                    size="xs"
-                                    variant="default"
-                                >
-                                    {t('streams.download')}
-                                </Button>
-                            </>
-                        )}
-                        <FavoriteButton name={item.title} url={item.url} />
+                        <div className={styles.actions}>
+                            <ActionIcon
+                                icon="mediaPlay"
+                                onClick={() => playYoutube(results, index)}
+                                tooltip={{ label: t('player.play'), openDelay: 300 }}
+                                variant="filled"
+                            />
+                            {!item.isLive && (
+                                <>
+                                    <ActionIcon
+                                        icon="add"
+                                        onClick={() => playYoutube([item], 0, Play.LAST)}
+                                        tooltip={{ label: t('streams.addToQueue'), openDelay: 300 }}
+                                        variant="default"
+                                    />
+                                    <ActionIcon
+                                        icon={pending.has(item.url) ? 'spinner' : 'download'}
+                                        onClick={() => !pending.has(item.url) && download(item.url)}
+                                        tooltip={{ label: t('streams.download'), openDelay: 300 }}
+                                        variant="default"
+                                    />
+                                </>
+                            )}
+                            {item.isLive ? (
+                                <FavoriteButton name={item.title} url={item.url} />
+                            ) : (
+                                <SongStarButton item={item} />
+                            )}
+                        </div>
                     </div>
                 ))}
             </Stack>

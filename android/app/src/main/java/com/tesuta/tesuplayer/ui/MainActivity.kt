@@ -82,8 +82,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.tesuta.tesuplayer.R
 import kotlinx.coroutines.launch
-import java.net.URLDecoder
-import java.net.URLEncoder
 
 class MainActivity : ComponentActivity() {
     private val vm: AppViewModel by viewModels()
@@ -118,15 +116,20 @@ class MainActivity : ComponentActivity() {
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
 private val tabs = listOf(
-    Tab("home", "Музыка", Icons.Default.Album),
-    Tab("playlists", "Плейлисты", Icons.AutoMirrored.Filled.QueueMusic),
+    Tab("home", "Главная", Icons.Default.Album),
+    Tab("library", "Библиотека", Icons.AutoMirrored.Filled.QueueMusic),
     Tab("search", "Поиск", Icons.Default.Search),
     Tab("devices", "Где играет", Icons.Default.Devices),
     Tab("downloads", "Загрузки", Icons.Default.DownloadForOffline),
 )
 
-private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
-private fun dec(s: String) = URLDecoder.decode(s, "UTF-8")
+private val titles = mapOf(
+    "settings" to "Настройки", "equalizer" to "Эквалайзер", "albums" to "Альбомы", "artists" to "Исполнители",
+    "songs" to "Треки", "genres" to "Жанры", "folders" to "Папки", "favorites" to "Избранное",
+    "playlists" to "Плейлисты", "radio" to "Радиостанции", "album/{id}" to "Альбом", "artist/{id}" to "Исполнитель",
+    "artist_songs/{id}" to "Все треки", "folder/{id}" to "Папка",
+)
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -156,9 +159,9 @@ fun App(vm: AppViewModel) {
                     title = {
                         Text(
                             when (route) {
-                                "settings" -> "Настройки"
                                 null -> ""
-                                else -> tabs.find { it.route == route }?.label ?: entry?.arguments?.getString("name")?.let(::dec) ?: ""
+                                else -> tabs.find { it.route == route }?.label ?: titles[route]
+                                    ?: entry?.arguments?.getString("name") ?: ""
                             },
                             fontWeight = FontWeight.Bold,
                         )
@@ -196,25 +199,40 @@ fun App(vm: AppViewModel) {
         ) { padding ->
             Column(Modifier.padding(padding).fillMaxSize()) {
                 if (!online) OfflineBanner()
+                val go = remember(nav) { Nav { r -> nav.navigate(r) } }
+                // Navigation already decodes Uri.encode-d arguments
+                fun arg(e: androidx.navigation.NavBackStackEntry, key: String) = e.arguments?.getString(key).orEmpty()
                 NavHost(nav, startDestination = startRoute, Modifier.weight(1f)) {
-                    composable("home") { androidx.compose.runtime.key(permissionsVersion) { HomeScreen(vm) { id -> nav.navigate("album/$id") } } }
-                    composable("playlists") { PlaylistsScreen(vm) { id, name -> nav.navigate("playlist/$id/${enc(name)}") } }
-                    composable("search") { SearchScreen(vm) { id -> nav.navigate("album/$id") } }
+                    composable("home") { androidx.compose.runtime.key(permissionsVersion) { HomeScreen(vm, go) } }
+                    composable("library") { LibraryScreen(vm, go) }
+                    composable("search") { SearchScreen(vm, go) }
                     composable("devices") { DevicesScreen(vm) }
-                    composable("downloads") { DownloadsScreen(vm) }
-                    composable("settings") { SettingsScreen(vm) }
-                    composable("album/{id}", listOf(navArgument("id") { type = NavType.StringType })) {
-                        AlbumScreen(vm, it.arguments?.getString("id").orEmpty())
-                    }
-                    composable("playlist/{id}/{name}") {
-                        PlaylistScreen(vm, it.arguments?.getString("id").orEmpty(), dec(it.arguments?.getString("name").orEmpty()))
-                    }
+                    composable("downloads") { DownloadsScreen(vm, go) }
+                    composable("settings") { SettingsScreen(vm, go) }
+                    composable("equalizer") { EqualizerScreen(vm) }
+                    composable("albums") { AlbumsScreen(vm, go) }
+                    composable("artists") { ArtistsScreen(vm, go) }
+                    composable("songs") { SongsScreen(vm, go) }
+                    composable("genres") { GenresScreen(vm, go) }
+                    composable("folders") { FoldersScreen(vm, go, null) }
+                    composable("favorites") { FavoritesScreen(vm, go) }
+                    composable("playlists") { PlaylistsScreen(vm, go) }
+                    composable("radio") { RadioScreen(vm) }
+                    composable("album/{id}") { AlbumScreen(vm, go, arg(it, "id")) }
+                    composable("artist/{id}") { ArtistScreen(vm, go, arg(it, "id")) }
+                    composable("artist_songs/{id}") { ArtistSongsScreen(vm, go, arg(it, "id")) }
+                    composable("genre/{name}") { GenreScreen(vm, go, arg(it, "name")) }
+                    composable("folder/{id}") { FoldersScreen(vm, go, arg(it, "id")) }
+                    composable("playlist/{id}/{name}") { PlaylistScreen(vm, go, arg(it, "id"), arg(it, "name")) }
                 }
             }
         }
 
+        AddToPlaylistDialog(vm)
+        TrackInfoDialog(vm)
+
         AnimatedVisibility(fullPlayer, enter = slideInVertically { it }, exit = slideOutVertically { it }) {
-            FullPlayer(playerState, vm.player) { fullPlayer = false }
+            FullPlayer(playerState, vm, Nav { r -> fullPlayer = false; nav.navigate(r) }) { fullPlayer = false }
         }
         BackHandler(fullPlayer) { fullPlayer = false }
     }

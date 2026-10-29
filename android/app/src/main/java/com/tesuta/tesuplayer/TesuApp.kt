@@ -24,7 +24,7 @@ class TesuApp : Application() {
         super.onCreate()
         prefs = Prefs(this)
         downloads = Downloads(this)
-        player = PlayerController(this)
+        player = PlayerController(this, prefs)
         // Unpacking Python takes a few seconds on first launch
         thread(name = "yt-dlp-init") { Streams.init(this) }
         watchNetwork()

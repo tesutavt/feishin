@@ -11,6 +11,7 @@ import {
     getYoutubeStreamUrl,
     getYoutubeThumbnail,
     isYoutubeId,
+    knownYoutubeSong,
     YoutubeSong,
 } from './youtube';
 
@@ -173,14 +174,33 @@ const artistJson = (a: LocalArtist, withAlbums = false) => ({
     ...(withAlbums ? { album: a.albums.map((al) => albumJson(al)) } : {}),
 });
 
+/** A library file or a YouTube song, as Subsonic JSON */
+const anySong = (
+    id: string,
+): null | {
+    cover?: string;
+    duration: number;
+    json: ReturnType<typeof songJson> | ReturnType<typeof youtubeSongJson>;
+} => {
+    const local = library.songs.get(id);
+    if (local)
+        return {
+            cover: local.hasPicture ? local.id : local.albumId,
+            duration: local.duration,
+            json: songJson(local),
+        };
+    const yt = isYoutubeId(id) ? knownYoutubeSong(id) : undefined;
+    return yt ? { cover: yt.id, duration: yt.duration, json: youtubeSongJson(yt) } : null;
+};
+
 const playlistJson = (id: string, withSongs = false) => {
     const pl = u().playlists.find((p) => p.id === id);
     if (!pl) throw new ApiError(70, 'Playlist not found');
-    const songs = pl.songIds.map((sid) => library.songs.get(sid)).filter(Boolean) as LocalSong[];
+    const songs = pl.songIds.flatMap((sid) => anySong(sid) ?? []);
     return {
         changed: pl.changed,
         comment: '',
-        coverArt: songs[0] ? (songs[0].hasPicture ? songs[0].id : songs[0].albumId) : undefined,
+        coverArt: songs[0]?.cover,
         created: pl.created,
         duration: songs.reduce((sum, s) => sum + s.duration, 0),
         id: pl.id,
@@ -188,7 +208,7 @@ const playlistJson = (id: string, withSongs = false) => {
         owner: 'local',
         public: false,
         songCount: songs.length,
-        ...(withSongs ? { entry: songs.map(songJson) } : {}),
+        ...(withSongs ? { entry: songs.map((s) => s.json) } : {}),
     };
 };
 
@@ -226,9 +246,10 @@ const starredLists = () => ({
     artist: [...library.artists.values()]
         .filter((a) => u().starred[a.id])
         .map((a) => artistJson(a)),
-    song: allSongs()
-        .filter((s) => u().starred[s.id])
-        .map(songJson),
+    // favourite files and favourite YouTube songs, newest first
+    song: Object.entries(u().starred)
+        .sort(([, a], [, b]) => b.localeCompare(a))
+        .flatMap(([id]) => anySong(id)?.json ?? []),
 });
 
 const albumList = (p: Params) => {
@@ -289,6 +310,8 @@ const ids = (p: Params, ...keys: string[]) => keys.flatMap((k) => p.getAll(k)).f
 // ---------------------------------------------------------------- devices ("where is it playing")
 
 interface Device {
+    /** radio / Twitch: no library song, just what is on air */
+    artist?: string;
     client: string;
     commands: string[];
     id: string;
@@ -296,6 +319,7 @@ interface Device {
     position: number;
     songId?: string;
     state: 'paused' | 'playing' | 'stopped';
+    title?: string;
     updated: number;
 }
 
@@ -309,13 +333,17 @@ const liveDevices = () => {
 };
 
 const deviceJson = (d: Device) => {
-    const song = d.songId ? library.songs.get(d.songId) : undefined;
+    const song =
+        (d.songId ? anySong(d.songId)?.json : undefined) ??
+        (d.title
+            ? { artist: d.artist ?? '', duration: 0, id: '', isLive: true, title: d.title }
+            : undefined);
     return {
         client: d.client,
         id: d.id,
         name: d.name,
         position: d.position + (d.state === 'playing' ? (Date.now() - d.updated) / 1000 : 0),
-        song: song ? songJson(song) : undefined,
+        song,
         state: d.state,
         updated: new Date(d.updated).toISOString(),
     };
@@ -455,11 +483,11 @@ const methods: Record<string, (p: Params) => object | Promise<object>> = {
     getNowPlaying: () => ({
         nowPlaying: {
             entry: liveDevices().flatMap((d) => {
-                const song = d.songId ? library.songs.get(d.songId) : undefined;
+                const song = d.songId ? anySong(d.songId)?.json : undefined;
                 if (!song || d.state !== 'playing') return [];
                 return [
                     {
-                        ...songJson(song),
+                        ...song,
                         minutesAgo: 0,
                         playerId: d.id,
                         playerName: d.name,
@@ -476,10 +504,7 @@ const methods: Record<string, (p: Params) => object | Promise<object>> = {
     getPlayQueue: () => {
         const queue = u().playQueue;
         if (!queue) return {};
-        const entry = queue.songIds.flatMap((id) => {
-            const song = library.songs.get(id);
-            return song ? [songJson(song)] : [];
-        });
+        const entry = queue.songIds.flatMap((id) => anySong(id)?.json ?? []);
         return {
             playQueue: {
                 changed: queue.changed,
@@ -629,6 +654,7 @@ const methods: Record<string, (p: Params) => object | Promise<object>> = {
         if (!id) throw new ApiError(10, 'deviceId is required');
         const state = p.get('state');
         const device: Device = {
+            artist: p.get('artist') || undefined,
             client: p.get('c') ?? 'TesuPlayer',
             commands: devices.get(id)?.commands ?? [],
             id,
@@ -636,6 +662,7 @@ const methods: Record<string, (p: Params) => object | Promise<object>> = {
             position: Number(p.get('position')) || 0,
             songId: p.get('id') || undefined,
             state: state === 'playing' || state === 'paused' ? state : 'stopped',
+            title: p.get('title') || undefined,
             updated: Date.now(),
         };
         devices.set(id, device);

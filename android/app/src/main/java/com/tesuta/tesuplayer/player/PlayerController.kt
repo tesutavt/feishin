@@ -7,9 +7,11 @@ import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.tesuta.tesuplayer.data.Prefs
 import com.tesuta.tesuplayer.data.Source
 import com.tesuta.tesuplayer.data.Streams
 import com.tesuta.tesuplayer.data.Track
@@ -29,6 +31,7 @@ import java.io.File
 data class PlayerUi(
     val hasMedia: Boolean = false,
     val mediaId: String? = null,
+    val track: Track? = null,
     val title: String = "",
     val artist: String = "",
     val artwork: Uri? = null,
@@ -41,23 +44,36 @@ data class PlayerUi(
     val repeat: Int = Player.REPEAT_MODE_OFF,
     val hasNext: Boolean = false,
     val hasPrevious: Boolean = false,
-    val queue: List<String> = emptyList(),
+    val queue: List<Track> = emptyList(),
     val index: Int = 0,
     val loading: Boolean = false,
     val error: String? = null,
+    val speed: Float = 1f,
+    /** epoch ms when the sleep timer fires; -1 = after the current track */
+    val sleepAt: Long? = null,
 )
 
-/** UI-side handle to PlaybackService. */
-class PlayerController(private val context: Context) {
+/** UI-side handle to PlaybackService: queue, timer, Auto-DJ like the desktop player */
+class PlayerController(private val context: Context, private val prefs: Prefs) {
     companion object {
         const val EXTRA_MIME = "mime"
+        const val SLEEP_END_OF_TRACK = -1L
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var controller: MediaController? = null
-    private val _state = MutableStateFlow(PlayerUi())
+    private val _state = MutableStateFlow(PlayerUi(speed = prefs.speed))
     val state: StateFlow<PlayerUi> = _state.asStateFlow()
     private var queueJob: Job? = null
+    private var sleepJob: Job? = null
+    private var autoDjBusy = false
+    private var lastSaved = 0L
+
+    /** Track behind every queued MediaItem (by mediaId) */
+    private val known = mutableMapOf<String, Track>()
+
+    /** Set by the ViewModel: similar songs for Auto-DJ */
+    var similarProvider: (suspend (Track) -> List<Track>)? = null
 
     private suspend fun connect(): MediaController {
         controller?.let { return it }
@@ -65,29 +81,64 @@ class PlayerController(private val context: Context) {
         val c = MediaController.Builder(context, token).buildAsync().await()
         c.addListener(object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) = publish()
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                if (_state.value.sleepAt == SLEEP_END_OF_TRACK && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                    c.pause(); _state.value = _state.value.copy(sleepAt = null)
+                }
+                maybeAutoDj()
+            }
         })
+        c.playbackParameters = PlaybackParameters(prefs.speed)
         controller = c
         startTicker()
         return c
     }
 
+    /** Connects and restores the last queue (paused), like the desktop after a restart */
     fun warmUp() {
-        scope.launch { runCatching { connect() }; publish() }
+        scope.launch {
+            val c = runCatching { connect() }.getOrNull() ?: return@launch
+            if (c.mediaItemCount == 0) {
+                prefs.savedQueue?.let { (tracks, pos) ->
+                    val restorable = tracks.filter { !needsResolve(it) }
+                    if (restorable.isNotEmpty()) {
+                        restorable.forEach { known[it.id] = it }
+                        runCatching {
+                            c.setMediaItems(restorable.map { toMediaItem(it) }, pos.first.coerceIn(restorable.indices), pos.second)
+                            c.prepare()
+                        }
+                    }
+                }
+            }
+            publish()
+        }
     }
 
     private fun startTicker() = scope.launch {
         while (isActive) {
             if (controller?.isPlaying == true) publish()
+            val at = _state.value.sleepAt
+            if (at != null && at > 0 && System.currentTimeMillis() >= at) {
+                controller?.pause(); _state.value = _state.value.copy(sleepAt = null)
+            }
             delay(500)
         }
+    }
+
+    private fun queueTracks(c: MediaController) = (0 until c.mediaItemCount).map { i ->
+        val item = c.getMediaItemAt(i)
+        known[item.mediaId] ?: Track(id = item.mediaId, title = item.mediaMetadata.title?.toString().orEmpty(),
+            artist = item.mediaMetadata.artist?.toString().orEmpty())
     }
 
     private fun publish() {
         val c = controller ?: return
         val meta = c.mediaMetadata
+        val queue = queueTracks(c)
         _state.value = _state.value.copy(
             hasMedia = c.mediaItemCount > 0,
             mediaId = c.currentMediaItem?.mediaId,
+            track = c.currentMediaItem?.mediaId?.let { known[it] },
             title = meta.title?.toString().orEmpty(),
             artist = meta.artist?.toString().orEmpty(),
             artwork = meta.artworkUri,
@@ -100,10 +151,17 @@ class PlayerController(private val context: Context) {
             repeat = c.repeatMode,
             hasNext = c.hasNextMediaItem(),
             hasPrevious = c.hasPreviousMediaItem(),
-            queue = (0 until c.mediaItemCount).map { c.getMediaItemAt(it).mediaMetadata.title?.toString().orEmpty() },
+            queue = queue,
             index = c.currentMediaItemIndex,
+            speed = c.playbackParameters.speed,
             error = c.playerError?.message ?: _state.value.error,
         )
+        // save the queue now and then
+        val now = System.currentTimeMillis()
+        if (now - lastSaved > 5000) {
+            lastSaved = now
+            prefs.savedQueue = if (queue.isEmpty()) null else queue to (c.currentMediaItemIndex to c.currentPosition)
+        }
     }
 
     private fun needsResolve(t: Track) = t.localPath == null && t.source != Source.SERVER
@@ -127,6 +185,7 @@ class PlayerController(private val context: Context) {
             }
             else -> uri = t.streamUrl ?: error("No stream")
         }
+        known[t.id] = t.copy(title = title, artist = artist, coverUrl = cover)
         val metadata = MediaMetadata.Builder()
             .setTitle(title)
             .setArtist(artist)
@@ -177,13 +236,48 @@ class PlayerController(private val context: Context) {
         }
     }
 
-    fun enqueue(track: Track) {
+    /** At the end of the queue ("Добавить в конец") */
+    fun enqueue(tracks: List<Track>) {
         scope.launch {
             runCatching {
                 val c = connect()
-                c.addMediaItem(toMediaItem(track))
-                if (c.mediaItemCount == 1) { c.prepare(); c.play() }
+                for (t in tracks) c.addMediaItem(toMediaItem(t))
+                if (c.mediaItemCount == tracks.size) { c.prepare(); c.play() }
             }.onFailure { _state.value = _state.value.copy(error = it.message) }
+            publish()
+        }
+    }
+
+    fun enqueue(track: Track) = enqueue(listOf(track))
+
+    /** Right after the current track ("Играть далее") */
+    fun playNext(tracks: List<Track>) {
+        scope.launch {
+            runCatching {
+                val c = connect()
+                if (c.mediaItemCount == 0) { play(tracks); return@launch }
+                val at = c.currentMediaItemIndex + 1
+                c.addMediaItems(at, tracks.map { toMediaItem(it) })
+            }.onFailure { _state.value = _state.value.copy(error = it.message) }
+            publish()
+        }
+    }
+
+    /** Auto-DJ: when the last track starts, append similar ones */
+    private fun maybeAutoDj() {
+        val c = controller ?: return
+        if (!prefs.autoDj || autoDjBusy || c.hasNextMediaItem() || c.repeatMode != Player.REPEAT_MODE_OFF) return
+        val current = c.currentMediaItem?.mediaId?.let { known[it] } ?: return
+        if (current.source == Source.TWITCH) return
+        val provider = similarProvider ?: return
+        autoDjBusy = true
+        scope.launch {
+            runCatching {
+                val queued = queueTracks(c).map { it.id }.toSet()
+                val more = provider(current).filter { it.id !in queued }.take(10)
+                for (t in more) c.addMediaItem(toMediaItem(t))
+            }
+            autoDjBusy = false
             publish()
         }
     }
@@ -201,7 +295,7 @@ class PlayerController(private val context: Context) {
     fun next() = withController { it.seekToNextMediaItem() }
     fun previous() = withController { it.seekToPrevious() }
     fun seekTo(ms: Long) = withController { it.seekTo(ms) }
-    fun skipTo(index: Int) = withController { it.seekTo(index, 0) }
+    fun skipTo(index: Int) = withController { it.seekTo(index, 0); it.play() }
     fun toggleShuffle() = withController { it.shuffleModeEnabled = !it.shuffleModeEnabled }
     fun cycleRepeat() = withController {
         it.repeatMode = when (it.repeatMode) {
@@ -210,6 +304,45 @@ class PlayerController(private val context: Context) {
             else -> Player.REPEAT_MODE_OFF
         }
     }
+    fun move(from: Int, to: Int) = withController { if (to in 0 until it.mediaItemCount) it.moveMediaItem(from, to) }
+    fun remove(index: Int) = withController { if (index in 0 until it.mediaItemCount) it.removeMediaItem(index) }
+    /** Everything except the current track */
+    fun clearUpcoming() = withController { c ->
+        val current = c.currentMediaItemIndex
+        if (current + 1 < c.mediaItemCount) c.removeMediaItems(current + 1, c.mediaItemCount)
+        if (current > 0) c.removeMediaItems(0, current)
+    }
+    /** Shuffles the tracks after the current one */
+    fun shuffleUpcoming() = withController { c ->
+        val start = c.currentMediaItemIndex + 1
+        val count = c.mediaItemCount - start
+        if (count < 2) return@withController
+        val order = (0 until count).shuffled()
+        val items = (0 until count).map { c.getMediaItemAt(start + it) }
+        c.removeMediaItems(start, c.mediaItemCount)
+        c.addMediaItems(start, order.map { items[it] })
+    }
+    fun setSpeed(speed: Float) = withController {
+        prefs.speed = speed
+        it.playbackParameters = PlaybackParameters(speed)
+    }
+    /** Pause after [minutes]; null cancels, [SLEEP_END_OF_TRACK] waits for the track to end */
+    fun sleepIn(minutes: Int?) {
+        sleepJob?.cancel()
+        _state.value = _state.value.copy(
+            sleepAt = when (minutes) {
+                null -> null
+                -1 -> SLEEP_END_OF_TRACK
+                else -> System.currentTimeMillis() + minutes * 60_000L
+            },
+        )
+    }
     fun stop() = withController { it.stop(); it.clearMediaItems() }
     fun clearError() { _state.value = _state.value.copy(error = null) }
+
+    /** Ratings / favourite changed elsewhere: keep the queue's copy in sync */
+    fun updateTrack(track: Track) {
+        known[track.id]?.let { known[track.id] = it.copy(starred = track.starred, rating = track.rating) }
+        publish()
+    }
 }

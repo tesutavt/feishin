@@ -4,6 +4,7 @@
 
 .result {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--theme-spacing-sm);
     align-items: center;
     padding: var(--theme-spacing-xs);
@@ -23,6 +24,15 @@
 }
 
 .info {
-    flex: 1;
+    flex: 1 1 200px;
     min-width: 0;
+}
+
+/* buttons stay together; in a narrow window they move under the title instead of overlapping */
+.actions {
+    display: flex;
+    flex-shrink: 0;
+    gap: var(--theme-spacing-xs);
+    align-items: center;
+    margin-left: auto;
 }

@@ -1,19 +1,24 @@
 package com.tesuta.tesuplayer.ui
 
 import android.app.Application
+import android.content.Intent
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.tesuta.tesuplayer.TesuApp
 import com.tesuta.tesuplayer.data.Album
+import com.tesuta.tesuplayer.data.AlbumSort
 import com.tesuta.tesuplayer.data.AppJson
 import com.tesuta.tesuplayer.data.DeviceMusic
+import com.tesuta.tesuplayer.data.LyricLine
+import com.tesuta.tesuplayer.data.Lyrics
 import com.tesuta.tesuplayer.data.MusicApi
 import com.tesuta.tesuplayer.data.PcApi
 import com.tesuta.tesuplayer.data.Playlist
 import com.tesuta.tesuplayer.data.RemoteDevice
 import com.tesuta.tesuplayer.data.ServerConfig
 import com.tesuta.tesuplayer.data.Source
+import com.tesuta.tesuplayer.data.StarType
 import com.tesuta.tesuplayer.data.Streams
 import com.tesuta.tesuplayer.data.Track
 import com.tesuta.tesuplayer.data.normalizeUrl
@@ -26,7 +31,7 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 
 /** Where the music comes from: the phone itself or the TesuPlayer computer */
-enum class Library { PHONE, PC }
+enum class Library(val label: String) { PHONE("На телефоне"), PC("На компьютере") }
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val tesu = app as TesuApp
@@ -34,7 +39,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val downloads = tesu.downloads
     val player = tesu.player
     val online = tesu.online
-    val phone = DeviceMusic(app)
+    val phone = DeviceMusic(app, downloads)
 
     private val _server = MutableStateFlow(prefs.server)
     val server: StateFlow<ServerConfig?> = _server.asStateFlow()
@@ -54,20 +59,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
+    /** bumps when library data changes (favourite, rating, playlist): screens reload */
+    val revision = MutableStateFlow(0)
+    private fun changed() { revision.value++ }
+
+    /** tracks waiting for "Добавить в плейлист" */
+    val addToPlaylist = MutableStateFlow<List<Track>?>(null)
+    /** track for the info / rating sheet */
+    val trackInfo = MutableStateFlow<Track?>(null)
+
     val pc: PcApi? get() = _server.value?.let(::PcApi)
 
     fun api(library: Library = _library.value): MusicApi = if (library == Library.PC) pc ?: phone else phone
 
+    /** The library a track or id belongs to */
+    fun apiFor(id: String): MusicApi = if (id.startsWith("local") || id.startsWith("lp:") || id.startsWith("lr:")) phone else pc ?: phone
+
     init {
+        player.similarProvider = ::similar
         player.warmUp()
         startHeartbeat()
+        watchScrobbles()
     }
 
     fun toast(text: String?) { _message.value = text }
 
     /** bumps after the music permission is granted, so the phone library reloads */
     val permissionsVersion = MutableStateFlow(0)
-    fun permissionsChanged() { permissionsVersion.value++ }
+    fun permissionsChanged() { phone.invalidate(); permissionsVersion.value++ }
 
     fun setLibrary(library: Library) { _library.value = library }
 
@@ -86,9 +105,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _devices.value = emptyList()
     }
 
+    private fun launchAction(ok: String? = null, block: suspend () -> Unit) = viewModelScope.launch {
+        runCatching { block() }
+            .onSuccess { if (ok != null) toast(ok); changed() }
+            .onFailure { toast("Не получилось: ${it.message}") }
+    }
+
     /** Network first, cached copy when the computer is out of reach */
-    private suspend fun <T> cachedList(key: String, serializer: KSerializer<T>, library: Library, load: suspend (MusicApi) -> List<T>): List<T> {
-        if (library == Library.PHONE) return load(phone)
+    suspend fun <T> cached(key: String, serializer: KSerializer<T>, library: Library, load: suspend (MusicApi) -> List<T>): List<T> {
+        if (library == Library.PHONE || pc == null) return load(phone)
         val listSerializer = ListSerializer(serializer)
         return try {
             load(api(library)).also { prefs.cache(key, AppJson.encodeToString(listSerializer, it)) }
@@ -97,12 +122,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    suspend fun albums(library: Library) = cachedList("albums", Album.serializer(), library) { it.albums() }
-    suspend fun playlists() = cachedList("playlists", Playlist.serializer(), Library.PC) { it.playlists() }
+    suspend fun albums(library: Library, sort: AlbumSort = AlbumSort.NEWEST, size: Int = 200) =
+        cached("albums_${library}_$sort", Album.serializer(), library) { it.albums(sort, size) }
+    suspend fun playlists(library: Library) = cached("playlists_$library", Playlist.serializer(), library) { it.playlists() }
     suspend fun albumTracks(id: String) =
-        cachedList("album_$id", Track.serializer(), if (id.startsWith("local:")) Library.PHONE else Library.PC) { it.albumTracks(id) }
-    suspend fun playlistTracks(id: String) = cachedList("playlist_$id", Track.serializer(), Library.PC) { it.playlistTracks(id) }
-    suspend fun favorites() = cachedList("favorites", Track.serializer(), Library.PC) { (it as PcApi).starred() }
+        cached("album_$id", Track.serializer(), if (apiFor(id) === phone) Library.PHONE else Library.PC) { it.albumTracks(id) }
+    suspend fun playlistTracks(id: String) =
+        cached("playlist_$id", Track.serializer(), if (apiFor(id) === phone) Library.PHONE else Library.PC) { it.playlistTracks(id) }
+
+    // ---------------------------------------------------------------- playback
 
     /** Prefer the downloaded copy of a track (works offline, saves traffic) */
     private fun local(tracks: List<Track>): List<Track> {
@@ -121,6 +149,32 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         player.play(list, list.indexOfFirst { it.id == target?.id }.coerceAtLeast(0), shuffle)
     }
 
+    fun playNext(tracks: List<Track>) { player.playNext(local(tracks)); toast("Сыграет следующим") }
+    fun enqueue(tracks: List<Track>) { player.enqueue(local(tracks)); toast("Добавлено в очередь") }
+
+    /** Similar songs: the computer, the phone library or YouTube Mix */
+    suspend fun similar(track: Track): List<Track> = when {
+        track.source == Source.YOUTUBE -> Streams.mix(track)
+        track.id.startsWith("local:") -> phone.similar(track.id)
+        else -> pc?.similar(track.id).orEmpty()
+    }
+
+    /** "Радио по треку" like the desktop context menu */
+    fun trackRadio(track: Track) = viewModelScope.launch {
+        toast("Подбираю похожие…")
+        runCatching { similar(track) }.onSuccess { more -> player.play(local(listOf(track) + more)) }
+            .onFailure { toast("Не получилось: ${it.message}") }
+    }
+
+    fun artistRadio(artistId: String) = viewModelScope.launch {
+        runCatching { apiFor(artistId).artistTracks(artistId).shuffled().take(100) }
+            .onSuccess { play(it) }.onFailure { toast("Не получилось: ${it.message}") }
+    }
+
+    fun shuffleAll(library: Library) = viewModelScope.launch {
+        runCatching { api(library).randomSongs(200) }.onSuccess { play(it) }.onFailure { toast("Не получилось: ${it.message}") }
+    }
+
     fun download(tracks: List<Track>) {
         viewModelScope.launch {
             var failed = 0
@@ -128,24 +182,109 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             if (todo.isEmpty()) { toast("Уже на телефоне"); return@launch }
             toast("Скачиваю: ${todo.size}")
             for (t in todo) runCatching { downloads.download(t) }.onFailure { failed++ }
+            phone.invalidate()
             toast(if (failed == 0) "Загрузка началась — смотрите уведомления" else "Не удалось скачать: $failed")
         }
     }
 
-    fun star(track: Track, starred: Boolean) {
-        viewModelScope.launch {
-            runCatching { pc?.star(track.id, starred) }
-                .onSuccess { toast(if (starred) "Добавлено в избранное" else "Убрано из избранного") }
-                .onFailure { toast("Компьютер недоступен") }
+    fun share(track: Track) {
+        val text = track.pageUrl ?: "${track.artist} — ${track.title}"
+        val intent = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
+        getApplication<Application>().startActivity(Intent.createChooser(intent, "Поделиться").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    // ---------------------------------------------------------------- favourites, ratings, playlists
+
+    fun star(type: StarType, id: String, starred: Boolean) = launchAction(if (starred) "Добавлено в избранное" else "Убрано из избранного") {
+        apiFor(id).star(type, id, starred)
+        player.state.value.queue.firstOrNull { it.id == id }?.let { player.updateTrack(it.copy(starred = starred)) }
+    }
+
+    /** YouTube song as a favourite track: on the computer (synced) or on the phone */
+    fun starYoutube(track: Track, starred: Boolean) = launchAction(if (starred) "Добавлено в избранное" else "Убрано из избранного") {
+        val api = pc
+        val videoId = Streams.videoId(track)
+        if (api != null && videoId != null) {
+            api.song("yt-$videoId") // the computer learns the song (title, cover) first
+            api.star(StarType.SONG, "yt-$videoId", starred)
+        } else {
+            phone.starYoutube(track, starred)
         }
     }
 
-    // ---------------------------------------------------------------- "where is it playing"
+    fun rate(track: Track, rating: Int) = launchAction("Оценка: $rating") {
+        apiFor(track.id).rate(track.id, rating)
+        player.updateTrack(track.copy(rating = rating))
+    }
+
+    fun rateAlbum(id: String, rating: Int) = launchAction("Оценка: $rating") { apiFor(id).rate(id, rating) }
+
+    /** Where new playlists go: the computer when connected (synced), otherwise the phone */
+    fun playlistLibrary(): MusicApi = pc ?: phone
+
+    fun createPlaylist(name: String, tracks: List<Track> = emptyList()) = launchAction("Плейлист «$name» создан") {
+        val target = if (tracks.isNotEmpty()) apiFor(tracks.first().id) else playlistLibrary()
+        target.createPlaylist(name, tracks.map { it.id })
+    }
+
+    fun addTracksToPlaylist(playlist: Playlist, tracks: List<Track>) = launchAction("Добавлено в «${playlist.name}»") {
+        apiFor(playlist.id).addToPlaylist(playlist.id, tracks.map { it.id })
+    }
+
+    fun removeFromPlaylist(playlistId: String, index: Int) = launchAction("Убрано из плейлиста") {
+        apiFor(playlistId).removeFromPlaylist(playlistId, listOf(index))
+    }
+
+    fun renamePlaylist(id: String, name: String) = launchAction("Переименовано") { apiFor(id).renamePlaylist(id, name) }
+
+    fun deletePlaylist(id: String) = launchAction("Плейлист удалён") { apiFor(id).deletePlaylist(id) }
+
+    /** Playlists a track can be added to (the library it belongs to) */
+    suspend fun playlistsFor(tracks: List<Track>): List<Playlist> =
+        (tracks.firstOrNull()?.let { apiFor(it.id) } ?: playlistLibrary()).playlists()
+
+    // ---------------------------------------------------------------- radio stations
+
+    fun addRadioStation(name: String, url: String) = launchAction("Станция добавлена") { (pc ?: phone).addRadioStation(name, url) }
+    fun deleteRadioStation(id: String) = launchAction("Станция удалена") { apiFor(id).deleteRadioStation(id) }
+
+    fun playStation(name: String, url: String) {
+        when (Streams.sourceOf(url)) {
+            null -> player.play(listOf(Track(id = "radio:$url", title = name, artist = "Радио", streamUrl = url)))
+            else -> playLink(url)
+        }
+    }
+
+    // ---------------------------------------------------------------- lyrics
+
+    suspend fun lyrics(track: Track): List<LyricLine>? {
+        if (!prefs.lyricsEnabled) return null
+        val text = runCatching { apiFor(track.id).embeddedLyrics(track) }.getOrNull() ?: Lyrics.lrclib(track)
+        return text?.let(Lyrics::parse)?.takeIf { it.isNotEmpty() }
+    }
+
+    // ---------------------------------------------------------------- "where is it playing" and play counts
 
     private fun isPcTrack(id: String) = !id.contains(':')
 
+    /** play counts / "recently played", like the desktop scrobbling setting */
+    private fun watchScrobbles() = viewModelScope.launch {
+        var last: String? = null
+        player.state.collect { s ->
+            val id = s.mediaId ?: return@collect
+            if (!s.isPlaying || id == last) return@collect
+            last = id
+            if (!prefs.scrobble) return@collect
+            runCatching {
+                when {
+                    id.startsWith("local:") -> phone.scrobble(id)
+                    isPcTrack(id) -> pc?.scrobble(id)
+                }
+            }
+        }
+    }
+
     private fun startHeartbeat() = viewModelScope.launch {
-        var lastScrobbled: String? = null
         while (true) {
             val api = pc
             if (api != null && online.value) {
@@ -158,15 +297,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         songId = songId,
                         positionSec = state.position / 1000,
                         state = when { !state.hasMedia -> "stopped"; state.isPlaying -> "playing"; else -> "paused" },
+                        title = state.title.takeIf { state.hasMedia && it.isNotBlank() },
+                        artist = state.artist.takeIf { it.isNotBlank() },
                     )
                     commands.forEach(::runCommand)
                     _devices.value = devices
                     _pcReachable.value = true
-                    // play counts / "recently played" on the computer
-                    if (songId != null && state.isPlaying && songId != lastScrobbled) {
-                        lastScrobbled = songId
-                        api.scrobble(songId)
-                    }
                 }.onFailure { _pcReachable.value = false }
             }
             delay(5000)
@@ -198,13 +334,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------------------------------------------------------- Twitch / links
 
     /** Saved on the computer as a radio station: the desktop app shows it too */
-    fun addFavorite(name: String, url: String) {
-        viewModelScope.launch {
-            runCatching { pc?.addStation(name, url) }
-                .onSuccess { toast("Добавлено в избранное") }
-                .onFailure { toast("Компьютер недоступен") }
-        }
-    }
+    fun addFavorite(name: String, url: String) = launchAction("Добавлено в избранное") { (pc ?: phone).addRadioStation(name, url) }
 
     fun addTwitch(channel: String) {
         val c = channel.trim().removePrefix("@").substringAfterLast("twitch.tv/").substringBefore('?').trimEnd('/')

@@ -44,7 +44,11 @@ export const SearchContent = () => {
 
 const OnlineSearch = () => {
     const [searchParams] = useSearchParams();
-    return <OnlineSearchResults query={searchParams.get('query') || ''} />;
+    return (
+        <div style={{ height: '100%', minHeight: 0, overflowY: 'auto' }}>
+            <OnlineSearchResults query={searchParams.get('query') || ''} />
+        </div>
+    );
 };
 
 const AlbumSearch = () => {

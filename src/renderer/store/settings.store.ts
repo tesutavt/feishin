@@ -2944,6 +2944,21 @@ export const useSettingsStore = createWithEqualityFn<SettingsSlice>()(
                     state.tab = 'library';
                 }
 
+                if (version < 38) {
+                    const devices = state.general.sidebarItems.find(
+                        (item: any) => item.id === 'Devices',
+                    );
+                    if (devices) devices.disabled = false;
+                    else {
+                        state.general.sidebarItems.push({
+                            disabled: false,
+                            id: 'Devices',
+                            label: 'Где играет',
+                            route: AppRoute.DEVICES,
+                        });
+                    }
+                }
+
                 if (version < 37) {
                     // YouTube / Twitch moved into the global search
                     state.general.sidebarItems = state.general.sidebarItems.filter(
@@ -2965,7 +2980,7 @@ export const useSettingsStore = createWithEqualityFn<SettingsSlice>()(
                 return persistedState;
             },
             name: 'store_settings',
-            version: 37,
+            version: 38,
         },
     ),
 );

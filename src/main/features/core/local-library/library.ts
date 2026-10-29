@@ -100,6 +100,15 @@ export interface SavedQueue {
     songIds: string[];
 }
 
+export interface StoredYoutubeSong {
+    artist: string;
+    duration: number;
+    id: string;
+    thumbnail: null | string;
+    title: string;
+    videoId: string;
+}
+
 interface UserData {
     folders: string[];
     lastPlayed: Record<string, string>;
@@ -110,6 +119,8 @@ interface UserData {
     ratings: Record<string, number>;
     remote: RemoteAccess;
     starred: Record<string, string>;
+    /** YouTube songs that were played: favourites and playlists keep working after a restart */
+    youtube?: Record<string, StoredYoutubeSong>;
 }
 
 export const hashId = (value: string) =>

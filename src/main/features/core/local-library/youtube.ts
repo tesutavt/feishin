@@ -1,3 +1,5 @@
+import { library } from './library';
+
 // YouTube videos as regular songs of the library: the UI queues them like local
 // tracks (seek, next, favourites), the stream endpoint redirects to the audio.
 
@@ -43,12 +45,31 @@ export const setYoutubeResolver = (fn: (videoId: string) => Promise<YoutubeResol
     resolver = fn;
 };
 
+const remember = (song: YoutubeSong) => {
+    songs.set(song.id, song);
+    const stored = (library.user.youtube ??= {});
+    const prev = stored[song.id];
+    if (
+        !prev ||
+        prev.title !== song.title ||
+        prev.artist !== song.artist ||
+        prev.duration !== song.duration
+    ) {
+        stored[song.id] = song;
+        library.save();
+    }
+};
+
 export const registerYoutube = (items: Omit<YoutubeSong, 'id'>[]) =>
     items.map((item) => {
         const song = { ...item, id: youtubeId(item.videoId) };
-        songs.set(song.id, song);
+        remember(song);
         return song.id;
     });
+
+/** Known without asking YouTube (this session or saved earlier) */
+export const knownYoutubeSong = (id: string): undefined | YoutubeSong =>
+    songs.get(id) ?? library.user.youtube?.[id];
 
 const resolve = async (id: string) => {
     if (!resolver) throw new Error('yt-dlp is not ready');
@@ -62,14 +83,14 @@ const resolve = async (id: string) => {
     });
     if (!songs.has(id)) {
         const { artist, duration, thumbnail, title } = resolved;
-        songs.set(id, { artist, duration, id, thumbnail, title, videoId });
+        remember({ artist, duration, id, thumbnail, title, videoId });
     }
     return resolved;
 };
 
 /** Metadata; after a restart (restored queue) it is fetched again */
 export const getYoutubeSong = async (id: string) => {
-    const known = songs.get(id);
+    const known = knownYoutubeSong(id);
     if (known) return known;
     await resolve(id);
     return songs.get(id)!;
@@ -82,4 +103,5 @@ export const getYoutubeStreamUrl = async (id: string) => {
 };
 
 export const getYoutubeThumbnail = (id: string) =>
-    songs.get(id)?.thumbnail || `https://i.ytimg.com/vi/${id.slice(PREFIX.length)}/hqdefault.jpg`;
+    knownYoutubeSong(id)?.thumbnail ||
+    `https://i.ytimg.com/vi/${id.slice(PREFIX.length)}/hqdefault.jpg`;

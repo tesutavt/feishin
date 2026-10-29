@@ -14,7 +14,7 @@ data class Track(
     /** seconds */
     val duration: Long = 0,
     val coverUrl: String? = null,
-    /** direct stream for server tracks; null for YouTube / Twitch (resolved by yt-dlp) */
+    /** direct stream for library tracks; null for YouTube / Twitch (resolved by yt-dlp) */
     val streamUrl: String? = null,
     val source: Source = Source.SERVER,
     /** YouTube / Twitch page link */
@@ -23,6 +23,16 @@ data class Track(
     /** set when downloaded for offline */
     val localPath: String? = null,
     val downloadId: Long? = null,
+    val albumId: String? = null,
+    val artistId: String? = null,
+    val genre: String? = null,
+    val year: Int? = null,
+    val trackNumber: Int? = null,
+    val rating: Int = 0,
+    val starred: Boolean = false,
+    val playCount: Int = 0,
+    val bitRate: Int? = null,
+    val path: String? = null,
 )
 
 @Serializable
@@ -32,7 +42,24 @@ data class Album(
     val artist: String = "",
     val coverUrl: String? = null,
     val year: Int? = null,
+    val artistId: String? = null,
+    val songCount: Int = 0,
+    val genre: String? = null,
+    val starred: Boolean = false,
+    val rating: Int = 0,
 )
+
+@Serializable
+data class Artist(
+    val id: String,
+    val name: String,
+    val albumCount: Int = 0,
+    val coverUrl: String? = null,
+    val starred: Boolean = false,
+)
+
+@Serializable
+data class Genre(val name: String, val songCount: Int = 0, val albumCount: Int = 0)
 
 @Serializable
 data class Playlist(
@@ -42,7 +69,47 @@ data class Playlist(
     val coverUrl: String? = null,
 )
 
-data class SearchResult(val albums: List<Album>, val tracks: List<Track>)
+/** A folder in the music library: sub-folders and the songs in it */
+data class FolderContent(val id: String, val name: String, val folders: List<Pair<String, String>>, val tracks: List<Track>)
+
+data class ArtistDetail(val artist: Artist, val albums: List<Album>, val topSongs: List<Track>)
+
+data class SearchResult(
+    val albums: List<Album>,
+    val tracks: List<Track>,
+    val artists: List<Artist> = emptyList(),
+)
+
+data class Starred(val tracks: List<Track>, val albums: List<Album>, val artists: List<Artist>)
+
+/** Album list orders, the same as the desktop */
+enum class AlbumSort(val label: String, val subsonic: String) {
+    NEWEST("Недавно добавленные", "newest"),
+    NAME("По названию", "alphabeticalByName"),
+    ARTIST("По исполнителю", "alphabeticalByArtist"),
+    YEAR("По году", "byYear"),
+    FREQUENT("Часто слушаемые", "frequent"),
+    RECENT("Недавно игранные", "recent"),
+    STARRED("Избранные", "starred"),
+    RANDOM("Случайные", "random"),
+}
+
+enum class SongSort(val label: String) { NAME("По названию"), ARTIST("По исполнителю"), ALBUM("По альбому"), RECENT("Недавно добавленные"), RANDOM("Случайные") }
+
+enum class StarType { SONG, ALBUM, ARTIST }
+
+/** Home page sections, the same as the desktop */
+enum class HomeSection(val label: String) {
+    RECENTLY_ADDED("Недавно добавленные"),
+    RECENTLY_PLAYED("Недавно игранные"),
+    MOST_PLAYED("Часто слушаемые"),
+    RANDOM("Случайные альбомы"),
+    GENRES("Жанры"),
+    PLAYLISTS("Плейлисты"),
+}
+
+@Serializable
+data class RadioStation(val id: String, val name: String, val url: String)
 
 /** A computer running TesuPlayer with "Access from other devices" turned on */
 @Serializable

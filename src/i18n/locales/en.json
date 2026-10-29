@@ -1674,7 +1674,10 @@
         "favorites": "Favourites",
         "favoritesEmpty": "Press ☆ on a channel or a video. Favourites are saved to Radio stations and sync to your other devices.",
         "saved": "\"{{name}}\" added to favourites (Radio stations)",
-        "addToQueue": "Add to queue"
+        "addToQueue": "Add to queue",
+        "starTrack": "Add to favourite songs",
+        "starred": "Added to favourite songs",
+        "unstarred": "Removed from favourites"
     },
     "library": {
         "title": "My music",
