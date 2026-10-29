@@ -135,10 +135,10 @@ fun ListHeader(title: String, subtitle: String, cover: String?, vm: AppViewModel
         Text(title, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(subtitle, color = Palette.subtext)
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            RoundIconButton(Icons.Default.Shuffle, "Вперемешку") { vm.play(tracks, shuffle = true) }
             PillButton("Играть", Icons.Default.PlayArrow, { vm.play(tracks) })
-            PillButton("Вперемешку", Icons.Default.Shuffle, { vm.play(tracks, shuffle = true) }, primary = false)
-            if (tracks.any(::isPcTrack)) PillButton("Скачать", Icons.Default.Download, { vm.download(tracks) }, primary = false)
+            if (tracks.any(::isPcTrack)) RoundIconButton(Icons.Default.Download, "Скачать на телефон") { vm.download(tracks) }
         }
     }
 }

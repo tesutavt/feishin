@@ -118,11 +118,11 @@ class MainActivity : ComponentActivity() {
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
 private val tabs = listOf(
-    Tab("home", "РњСѓР·С‹РєР°", Icons.Default.Album),
-    Tab("playlists", "РџР»РµР№Р»РёСЃС‚С‹", Icons.AutoMirrored.Filled.QueueMusic),
-    Tab("search", "РџРѕРёСЃРє", Icons.Default.Search),
-    Tab("devices", "Р“РґРµ РёРіСЂР°РµС‚", Icons.Default.Devices),
-    Tab("downloads", "Р—Р°РіСЂСѓР·РєРё", Icons.Default.DownloadForOffline),
+    Tab("home", "Музыка", Icons.Default.Album),
+    Tab("playlists", "Плейлисты", Icons.AutoMirrored.Filled.QueueMusic),
+    Tab("search", "Поиск", Icons.Default.Search),
+    Tab("devices", "Где играет", Icons.Default.Devices),
+    Tab("downloads", "Загрузки", Icons.Default.DownloadForOffline),
 )
 
 private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
@@ -146,7 +146,7 @@ fun App(vm: AppViewModel) {
     val message by vm.message.collectAsState()
 
     LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); vm.toast(null) } }
-    LaunchedEffect(playerState.error) { playerState.error?.let { snackbar.showSnackbar("РћС€РёР±РєР°: $it"); vm.player.clearError() } }
+    LaunchedEffect(playerState.error) { playerState.error?.let { snackbar.showSnackbar("Ошибка: $it"); vm.player.clearError() } }
 
     Box(Modifier.fillMaxSize()) {
         Scaffold(
@@ -156,7 +156,7 @@ fun App(vm: AppViewModel) {
                     title = {
                         Text(
                             when (route) {
-                                "settings" -> "РќР°СЃС‚СЂРѕР№РєРё"
+                                "settings" -> "Настройки"
                                 null -> ""
                                 else -> tabs.find { it.route == route }?.label ?: entry?.arguments?.getString("name")?.let(::dec) ?: ""
                             },

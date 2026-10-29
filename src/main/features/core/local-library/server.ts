@@ -6,6 +6,7 @@ import path from 'path';
 
 import { library, LocalAlbum, LocalArtist, LocalSong } from './library';
 import {
+    getYoutubeMix,
     getYoutubeSong,
     getYoutubeStreamUrl,
     getYoutubeThumbnail,
@@ -501,7 +502,12 @@ const methods: Record<string, (p: Params) => object | Promise<object>> = {
         scanStatus: { count: library.songs.size, scanning: library.scanning },
     }),
     getSimilarSongs: (p) => methods.getSimilarSongs2(p),
-    getSimilarSongs2: (p) => {
+    getSimilarSongs2: async (p) => {
+        const requested = p.get('id') ?? '';
+        if (isYoutubeId(requested)) {
+            const song = (await getYoutubeMix(requested, num(p, 'count', 25))).map(youtubeSongJson);
+            return { similarSongs: { song }, similarSongs2: { song } };
+        }
         const base =
             library.songs.get(p.get('id') ?? '') ??
             library.artists.get(p.get('id') ?? '')?.albums[0]?.songs[0];

@@ -5,8 +5,17 @@ import path from 'path';
 import { TagLib } from 'taglib-wasm';
 
 import { downloadsDir, library } from '/@/main/features/core/local-library/library';
-import { registerYoutube, setYoutubeResolver } from '/@/main/features/core/local-library/youtube';
+import {
+    registerYoutube,
+    setYoutubeMixProvider,
+    setYoutubeResolver,
+} from '/@/main/features/core/local-library/youtube';
 import { getDohProxyUrl } from '/@/main/features/core/streams/doh-proxy';
+import {
+    findMusicTags,
+    MusicTags,
+    parseVideoTitle,
+} from '/@/main/features/core/streams/music-tags';
 import log from '/@/main/logger';
 import {
     type DownloadedTrack,
@@ -222,51 +231,48 @@ const safeFileName = (value: string) =>
         .trim()
         .slice(0, 150);
 
-/** Artist / title from YouTube Music fields, "Artist - Title" or the channel name */
-const musicTags = (info: any) => {
-    const uploader = String(info.artist || info.creator || info.uploader || info.channel || '')
-        .replace(/ - Topic$/, '')
-        .split(',')[0]
-        .trim();
-    let title = String(info.track || info.title || info.id);
-    let artist = info.track && info.artist ? String(info.artist).split(',')[0].trim() : '';
-    if (!artist) {
-        const match = title.match(/^(.+?)\s+[-–—]\s+(.+)$/);
-        if (match) {
-            artist = match[1].trim();
-            title = match[2].trim();
-        } else {
-            artist = uploader;
+const youtubeThumbnail = (info: any) =>
+    info.id
+        ? `https://i.ytimg.com/vi/${info.id}/maxresdefault.jpg`
+        : pickThumbnail(info) || undefined;
+
+const writeTags = async (file: string, tags: MusicTags, sourceUrl: string) => {
+    const taglib = await TagLib.initialize();
+    await taglib.edit(file, (audio) => {
+        audio.setProperty('title', tags.title);
+        audio.setProperty('artist', tags.artist);
+        audio.setProperty('album', tags.album);
+        audio.setProperty('albumArtist', tags.artist);
+        if (tags.year) audio.setProperty('date', String(tags.year));
+        if (tags.track) audio.setProperty('trackNumber', String(tags.track));
+        if (tags.genre) audio.setProperty('genre', tags.genre);
+        audio.setProperty('comment', sourceUrl);
+        if (tags.cover) {
+            audio.removePictures();
+            audio.addPicture({ data: tags.cover, mimeType: 'image/jpeg', type: 'FrontCover' });
         }
-    }
-    title = title
-        .replace(
-            /\s*[([](official\s*)?(music\s*)?(video|audio|lyrics?|lyric video|visualizer|mv|hd|4k)[)\]]/gi,
-            '',
-        )
-        .trim();
-    const year = parseInt(String(info.release_year || info.upload_date || '').slice(0, 4), 10) || 0;
-    return { album: String(info.album || 'YouTube'), artist: artist || 'YouTube', title, year };
+    });
 };
 
-const fetchCover = async (info: any): Promise<null | Uint8Array> => {
-    const candidates = [
-        info.id ? `https://i.ytimg.com/vi/${info.id}/maxresdefault.jpg` : null,
-        info.id ? `https://i.ytimg.com/vi/${info.id}/hqdefault.jpg` : null,
-        typeof info.thumbnail === 'string' ? info.thumbnail : null,
-    ].filter(Boolean) as string[];
-    for (const url of candidates) {
-        try {
-            const response = await net.fetch(url);
-            const type = response.headers.get('content-type') ?? '';
-            if (response.ok && type.startsWith('image/jpeg')) {
-                return new Uint8Array(await response.arrayBuffer());
-            }
-        } catch {
-            // try next size
-        }
+/** YouTube/<Artist>/<Album>/<NN - >Title.m4a, without clobbering another file */
+const moveIntoLibrary = async (file: string, tags: MusicTags) => {
+    const dir = path.join(
+        downloadsDir(),
+        'YouTube',
+        safeFileName(tags.artist),
+        safeFileName(tags.album),
+    );
+    await fs.mkdir(dir, { recursive: true });
+    const ext = path.extname(file);
+    const base = safeFileName(
+        `${tags.track ? `${String(tags.track).padStart(2, '0')} - ` : ''}${tags.title}`,
+    );
+    let target = path.join(dir, `${base}${ext}`);
+    for (let i = 2; path.resolve(target) !== path.resolve(file) && (await exists(target)); i++) {
+        target = path.join(dir, `${base} (${i})${ext}`);
     }
-    return null;
+    if (path.resolve(target) !== path.resolve(file)) await fs.rename(file, target);
+    return target;
 };
 
 const downloadAudio = async (pageUrl: string): Promise<DownloadedTrack> => {
@@ -274,8 +280,8 @@ const downloadAudio = async (pageUrl: string): Promise<DownloadedTrack> => {
         throw new Error('Only YouTube links can be downloaded');
     }
     const binary = await requireYtDlp();
-    const dir = path.join(downloadsDir(), 'YouTube');
-    await fs.mkdir(dir, { recursive: true });
+    const tmpDir = path.join(downloadsDir(), 'YouTube');
+    await fs.mkdir(tmpDir, { recursive: true });
 
     const output = await runOnline(
         binary,
@@ -288,7 +294,7 @@ const downloadAudio = async (pageUrl: string): Promise<DownloadedTrack> => {
             '-f',
             DOWNLOAD_FORMAT,
             '-o',
-            path.join(dir, '%(id)s.%(ext)s'),
+            path.join(tmpDir, '%(id)s.%(ext)s'),
             pageUrl.trim(),
         ],
         30 * 60_000,
@@ -297,48 +303,63 @@ const downloadAudio = async (pageUrl: string): Promise<DownloadedTrack> => {
     const downloaded: string =
         info.requested_downloads?.[0]?.filepath ??
         info.filepath ??
-        path.join(dir, `${info.id}.${info.ext}`);
-    const tags = musicTags(info);
+        path.join(tmpDir, `${info.id}.${info.ext}`);
 
+    const tags = await findMusicTags(info, youtubeThumbnail(info));
     try {
-        const cover = await fetchCover(info);
-        const taglib = await TagLib.initialize();
-        await taglib.edit(downloaded, (file) => {
-            file.setProperty('title', tags.title);
-            file.setProperty('artist', tags.artist);
-            file.setProperty('album', tags.album);
-            file.setProperty('albumArtist', tags.artist);
-            if (tags.year) file.setProperty('date', String(tags.year));
-            file.setProperty('comment', info.webpage_url || pageUrl);
-            if (cover) {
-                file.removePictures();
-                file.addPicture({ data: cover, mimeType: 'image/jpeg', type: 'FrontCover' });
-            }
-        });
+        await writeTags(downloaded, tags, info.webpage_url || pageUrl);
     } catch (error) {
         log.warn('Could not tag downloaded track', { error: String(error) });
     }
+    const target = await moveIntoLibrary(downloaded, tags);
 
-    // readable file name: "Artist - Title.m4a"
-    const ext = path.extname(downloaded);
-    let target = path.join(dir, `${safeFileName(`${tags.artist} - ${tags.title}`)}${ext}`);
-    for (let i = 2; target !== downloaded; i++) {
-        try {
-            await fs.access(target);
-            target = path.join(
-                dir,
-                `${safeFileName(`${tags.artist} - ${tags.title}`)} (${i})${ext}`,
-            );
-        } catch {
-            break;
-        }
-    }
-    if (target !== downloaded) await fs.rename(downloaded, target);
-
-    log.info('Downloaded YouTube audio', { target });
+    log.info('Downloaded YouTube audio', { album: tags.album, artist: tags.artist, target });
     await library.scan();
     return { artist: tags.artist, path: target, title: tags.title };
 };
+
+/** Earlier downloads were all tagged album "YouTube": look them up again and re-file them */
+const retagDownloads = async () => {
+    const root = path.join(downloadsDir(), 'YouTube');
+    const files: string[] = [];
+    const walk = async (dir: string) => {
+        for (const entry of await fs.readdir(dir, { withFileTypes: true }).catch(() => [])) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) await walk(full);
+            else if (/\.(m4a|mp4|webm|opus|mp3)$/i.test(entry.name)) files.push(full);
+        }
+    };
+    await walk(root);
+
+    const taglib = await TagLib.initialize();
+    let fixed = 0;
+    for (const file of files) {
+        try {
+            const audio = await taglib.open(file);
+            const props = audio.properties() as Record<string, string[] | undefined>;
+            audio.dispose();
+            const album = props.album?.[0] ?? '';
+            if (album && album !== 'YouTube') continue;
+            const source = props.comment?.[0] ?? '';
+            const videoId = /[?&]v=([\w-]{6,})/.exec(source)?.[1];
+            const info = {
+                id: videoId,
+                title: `${props.artist?.[0] ?? ''} - ${props.title?.[0] ?? path.basename(file, path.extname(file))}`,
+                uploader: props.artist?.[0],
+            };
+            const tags = await findMusicTags(info, videoId ? youtubeThumbnail(info) : undefined);
+            await writeTags(file, tags, source);
+            await moveIntoLibrary(file, tags);
+            fixed++;
+        } catch (error) {
+            log.warn('Could not retag', { error: String(error), file });
+        }
+    }
+    await library.scan();
+    return { fixed, total: files.length };
+};
+
+ipcMain.handle('streams-retag-downloads', () => retagDownloads());
 
 ipcMain.handle('streams-download-audio', (_event, url: string) => downloadAudio(url));
 
@@ -362,17 +383,46 @@ ipcMain.handle('streams-resolve', (_event, url: string) => resolveStream(url));
 ipcMain.handle('streams-search-youtube', (_event, query: string) => searchYoutube(query));
 
 /** Search results become library songs (yt-<id>) so they can be queued and seeked */
+// "Artist - Song (Official video)" -> artist + song: better library, lyrics and scrobbles
+const asSong = (item: ExternalSearchResult) => {
+    const { artist, title } = parseVideoTitle({ title: item.title, uploader: item.uploader });
+    return {
+        artist,
+        duration: item.duration ?? 0,
+        thumbnail: item.thumbnail,
+        title,
+        videoId: item.id,
+    };
+};
+
 ipcMain.handle('streams-register-youtube', (_event, items: ExternalSearchResult[]) =>
-    registerYoutube(
-        items.map((item) => ({
-            artist: item.uploader || 'YouTube',
-            duration: item.duration ?? 0,
-            thumbnail: item.thumbnail,
-            title: item.title,
-            videoId: item.id,
-        })),
-    ),
+    registerYoutube(items.map(asSong)),
 );
+
+setYoutubeMixProvider(async (videoId) => {
+    const binary = await requireYtDlp();
+    const output = await runOnline(binary, [
+        '-J',
+        '--flat-playlist',
+        '--no-warnings',
+        '--playlist-end',
+        '50',
+        `https://www.youtube.com/watch?v=${videoId}&list=RD${videoId}`,
+    ]);
+    const entries: any[] = JSON.parse(output).entries ?? [];
+    return entries
+        .filter((entry) => entry?.id)
+        .map((entry) =>
+            asSong({
+                duration: typeof entry.duration === 'number' ? entry.duration : null,
+                id: entry.id,
+                thumbnail: pickThumbnail(entry),
+                title: entry.title || entry.id,
+                uploader: entry.channel || entry.uploader || null,
+                url: `https://www.youtube.com/watch?v=${entry.id}`,
+            }),
+        );
+});
 
 setYoutubeResolver(async (videoId) => {
     const binary = await requireYtDlp();
@@ -387,11 +437,12 @@ setYoutubeResolver(async (videoId) => {
     const info = JSON.parse(output);
     const url: string | undefined = info.url ?? info.requested_formats?.[0]?.url;
     if (!url) throw new Error('yt-dlp returned no stream');
+    const { artist, title } = parseVideoTitle(info);
     return {
-        artist: String(info.uploader || info.channel || 'YouTube').replace(/ - Topic$/, ''),
+        artist,
         duration: Math.round(Number(info.duration) || 0),
         thumbnail: pickThumbnail(info),
-        title: info.title || videoId,
+        title,
         url,
     };
 });

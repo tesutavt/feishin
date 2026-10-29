@@ -172,6 +172,34 @@ const OtherComputer = () => {
     );
 };
 
+/** Earlier YouTube downloads: find their real album / artist / cover */
+const RetagButton = () => {
+    const { t } = useTranslation();
+    const [busy, setBusy] = useState(false);
+    return (
+        <Group>
+            <Button
+                loading={busy}
+                onClick={async () => {
+                    setBusy(true);
+                    try {
+                        const { fixed, total } = await window.api.streams.retagDownloads();
+                        toast.success({ message: t('library.retagDone', { fixed, total }) });
+                    } catch (error) {
+                        toast.error({ message: (error as Error).message });
+                    } finally {
+                        setBusy(false);
+                    }
+                }}
+                size="xs"
+                variant="default"
+            >
+                {t('library.retag')}
+            </Button>
+        </Group>
+    );
+};
+
 export const LibraryTab = () => {
     const { t } = useTranslation();
     const [info, setInfo] = useLocalLibraryInfo();
@@ -230,6 +258,7 @@ export const LibraryTab = () => {
 
             <Section title="YouTube / Twitch">
                 <YtDlpStatusLine />
+                <RetagButton />
                 <Text isMuted size="sm">
                     {t('library.downloadsHint', { dir: info.downloadsDir })}
                 </Text>

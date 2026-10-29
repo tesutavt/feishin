@@ -1685,7 +1685,7 @@
         "addFolder": "Add folder",
         "rescan": "Rescan",
         "openDownloads": "Open downloads folder",
-        "downloadsHint": "Tracks downloaded from YouTube are saved to {{dir}} and appear in the library",
+        "downloadsHint": "Tracks downloaded from YouTube are saved to {{dir}}\\YouTube, sorted by artist and album (tags from YouTube Music or the iTunes catalogue).",
         "remoteTitle": "Access from other devices",
         "remoteHint": "Turn this on to listen to this computer's music from your phone or another computer. Playlists, favourites and play counts stay in sync because they live here.",
         "remoteEnable": "Allow connections",
@@ -1702,7 +1702,9 @@
         "connect": "Connect",
         "connected": "Connected",
         "connectFailed": "Could not connect",
-        "useThisComputer": "Back to this computer"
+        "useThisComputer": "Back to this computer",
+        "retag": "Fix tags of YouTube downloads",
+        "retagDone": "Updated {{fixed}} of {{total}} tracks"
     },
     "devices": {
         "title": "Where it's playing",

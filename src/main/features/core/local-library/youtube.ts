@@ -18,6 +18,22 @@ const PREFIX = 'yt-';
 const songs = new Map<string, YoutubeSong>();
 const streams = new Map<string, { expires: number; url: string }>();
 let resolver: ((videoId: string) => Promise<YoutubeResolved>) | null = null;
+let mixProvider: ((videoId: string) => Promise<Omit<YoutubeSong, 'id'>[]>) | null = null;
+
+export const setYoutubeMixProvider = (
+    fn: (videoId: string) => Promise<Omit<YoutubeSong, 'id'>[]>,
+) => {
+    mixProvider = fn;
+};
+
+/** YouTube Mix (radio) of a video: what Auto-DJ plays after YouTube songs */
+export const getYoutubeMix = async (id: string, count: number) => {
+    if (!mixProvider) return [];
+    const items = await mixProvider(id.slice(PREFIX.length));
+    return registerYoutube(items.filter((item) => youtubeId(item.videoId) !== id).slice(0, count))
+        .map((songId) => songs.get(songId)!)
+        .filter(Boolean);
+};
 
 export const isYoutubeId = (id: string) => id.startsWith(PREFIX);
 

@@ -97,22 +97,52 @@ export async function query(
 ): Promise<InternetProviderLyricResponse | null> {
     let result: AxiosResponse<LrcLibTrackResponse, any>;
 
+    const headers = { 'User-Agent': 'LRCGET v0.2.0 (https://github.com/tesutavt/TesuPlayer)' };
+    // lrclib.net answers 503 now and then: one retry
+    const request = async <T>(url: string, query: Record<string, unknown>) => {
+        for (let attempt = 0; ; attempt++) {
+            try {
+                return await axios.get<T>(url, { headers, params: query, timeout: TIMEOUT_MS });
+            } catch (e) {
+                const status = (e as { response?: { status?: number } }).response?.status;
+                if (status !== 503 || attempt > 0) throw e;
+                await new Promise((resolve) => setTimeout(resolve, 800));
+            }
+        }
+    };
+
     try {
-        result = await axios.get<LrcLibTrackResponse>(FETCH_URL, {
-            headers: {
-                'User-Agent': 'LRCGET v0.2.0 (https://github.com/jeffvli/feishin)',
-            },
-            params: {
-                album_name: params.album,
-                artist_name: params.artist,
-                duration: params.duration,
-                track_name: params.name,
-            },
-            timeout: TIMEOUT_MS,
+        result = await request<LrcLibTrackResponse>(FETCH_URL, {
+            album_name: params.album,
+            artist_name: params.artist,
+            duration: params.duration,
+            track_name: params.name,
         });
-    } catch (e) {
-        log.error('LrcLib search request got an error!', (e as Error).message);
-        return null;
+    } catch {
+        // exact match failed (other album name, YouTube upload...): search by artist + title
+        try {
+            const found = await request<(LrcLibTrackResponse & { duration?: number })[]>(
+                SEEARCH_URL,
+                {
+                    artist_name: params.artist,
+                    track_name: params.name,
+                },
+            );
+            const seconds = Number(params.duration) || 0;
+            const withLyrics = found.data.filter((r) => r.syncedLyrics || r.plainLyrics);
+            const best =
+                withLyrics.find(
+                    (r) =>
+                        r.syncedLyrics && (!seconds || Math.abs((r.duration ?? 0) - seconds) <= 6),
+                ) ??
+                withLyrics.find((r) => !seconds || Math.abs((r.duration ?? 0) - seconds) <= 6) ??
+                withLyrics[0];
+            if (!best) return null;
+            result = { ...found, data: best } as AxiosResponse<LrcLibTrackResponse>;
+        } catch (e) {
+            log.error('LrcLib search request got an error!', (e as Error).message);
+            return null;
+        }
     }
 
     const lyrics = result.data.syncedLyrics || result.data.plainLyrics || null;

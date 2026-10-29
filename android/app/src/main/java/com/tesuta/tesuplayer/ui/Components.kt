@@ -99,6 +99,18 @@ fun PillButton(text: String, icon: ImageVector, onClick: () -> Unit, modifier: M
 }
 
 @Composable
+fun RoundIconButton(icon: ImageVector, description: String, onClick: () -> Unit) = Box(
+    Modifier
+        .size(44.dp)
+        .clip(RoundedCornerShape(50))
+        .background(Palette.surface0)
+        .clickable(onClick = onClick),
+    contentAlignment = Alignment.Center,
+) {
+    Icon(icon, description, tint = Palette.text, modifier = Modifier.size(22.dp))
+}
+
+@Composable
 fun Loading() = Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
 
 @Composable
