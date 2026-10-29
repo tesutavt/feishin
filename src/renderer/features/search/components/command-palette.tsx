@@ -6,7 +6,6 @@ import { HomeCommands } from '/@/renderer/features/search/components/home-comman
 import { SearchAlbumArtistsSection } from '/@/renderer/features/search/components/search-album-artists-section';
 import { SearchAlbumsSection } from '/@/renderer/features/search/components/search-albums-section';
 import { SearchSongsSection } from '/@/renderer/features/search/components/search-songs-section';
-import { ServerCommands } from '/@/renderer/features/search/components/server-commands';
 import { useAppStore } from '/@/renderer/store';
 import { ActionIcon } from '/@/shared/components/action-icon/action-icon';
 import { Breadcrumb } from '/@/shared/components/breadcrumb/breadcrumb';
@@ -235,13 +234,6 @@ export const CommandPalette = ({ modalProps }: CommandPaletteProps) => {
                     )}
                     {activePage === CommandPalettePages.GO_TO && (
                         <GoToCommands
-                            handleClose={modalProps.handlers.close}
-                            setPages={setPages}
-                            setQuery={setQuery}
-                        />
-                    )}
-                    {activePage === CommandPalettePages.MANAGE_SERVERS && (
-                        <ServerCommands
                             handleClose={modalProps.handlers.close}
                             setPages={setPages}
                             setQuery={setQuery}

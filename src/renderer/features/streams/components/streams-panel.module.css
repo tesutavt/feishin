@@ -1,0 +1,28 @@
+.results {
+    max-height: 50vh;
+}
+
+.result {
+    display: flex;
+    gap: var(--theme-spacing-sm);
+    align-items: center;
+    padding: var(--theme-spacing-xs);
+    border-radius: var(--theme-radius-sm);
+}
+
+.result:hover {
+    background: var(--theme-colors-surface);
+}
+
+.thumb {
+    flex-shrink: 0;
+    width: 96px;
+    height: 54px;
+    object-fit: cover;
+    border-radius: var(--theme-radius-sm);
+}
+
+.info {
+    flex: 1;
+    min-width: 0;
+}

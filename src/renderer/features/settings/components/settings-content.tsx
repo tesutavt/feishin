@@ -1,6 +1,7 @@
 import isElectron from 'is-electron';
 import { useTranslation } from 'react-i18next';
 
+import { LibraryTab } from '/@/renderer/features/local-library/components/library-tab';
 import { AdvancedTab } from '/@/renderer/features/settings/components/advanced/advanced-tab';
 import { GeneralTab } from '/@/renderer/features/settings/components/general/general-tab';
 import { HotkeysTab } from '/@/renderer/features/settings/components/hotkeys/hotkeys-tab';
@@ -27,6 +28,7 @@ export const SettingsContent = () => {
                     variant="default"
                 >
                     <Tabs.List>
+                        <Tabs.Tab value="library">{t('library.title')}</Tabs.Tab>
                         <Tabs.Tab value="general">{t('page.setting.generalTab')}</Tabs.Tab>
                         <Tabs.Tab value="playback">{t('page.setting.playbackTab')}</Tabs.Tab>
                         <Tabs.Tab value="hotkeys">{t('page.setting.hotkeysTab')}</Tabs.Tab>
@@ -35,6 +37,9 @@ export const SettingsContent = () => {
                         )}
                         <Tabs.Tab value="advanced">{t('page.setting.advanced')}</Tabs.Tab>
                     </Tabs.List>
+                    <Tabs.Panel value="library">
+                        <LibraryTab />
+                    </Tabs.Panel>
                     <Tabs.Panel value="general">
                         <GeneralTab />
                     </Tabs.Panel>

@@ -203,6 +203,12 @@ const AudioPlayersContent = ({
         mpvPlayerListener.rendererPlayerFallback((isFallback: boolean) => {
             if (isFallback) {
                 logger.warn('Playback engine fell back to web');
+                // mpv is not shipped: really switch to the built-in player, otherwise
+                // everything (radio, Twitch, songs) would go to an mpv that is not running
+                const { actions, playback } = useSettingsStore.getState();
+                if (playback.type === PlayerType.LOCAL) {
+                    actions.setSettings({ playback: { ...playback, type: PlayerType.WEB } });
+                }
             } else {
                 logger.info('Playback engine using local (mpv)');
             }

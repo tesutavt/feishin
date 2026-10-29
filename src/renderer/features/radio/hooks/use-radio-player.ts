@@ -1,3 +1,4 @@
+import { t } from 'i18next';
 import IcecastMetadataStats from 'icecast-metadata-stats';
 import isElectron from 'is-electron';
 import React, { useEffect } from 'react';
@@ -6,7 +7,14 @@ import { createWithEqualityFn } from 'zustand/traditional';
 import { usePlayerEvents } from '/@/renderer/features/player/audio-player/hooks/use-player-events';
 import { usePlaybackType, usePlayerStoreBase, useSettingsStore } from '/@/renderer/store';
 import { logger } from '/@/renderer/utils/logger';
+import { toast } from '/@/shared/components/toast/toast';
+import { isExternalStreamUrl } from '/@/shared/types/streams';
 import { PlayerStatus, PlayerType } from '/@/shared/types/types';
+
+export interface ExternalStreamMetadata extends RadioMetadata {
+    isLive: boolean;
+    pageUrl: string;
+}
 
 export type RadioCurrentStationArt = {
     id: string;
@@ -38,6 +46,8 @@ interface RadioStore {
     };
     currentStationArt: null | RadioCurrentStationArt;
     currentStreamUrl: null | string;
+    // Title/channel of a YouTube or Twitch stream (from yt-dlp, not ICY)
+    externalMetadata: ExternalStreamMetadata | null;
     isPlaying: boolean;
     metadata: null | RadioMetadata;
     stationName: null | string;
@@ -46,10 +56,64 @@ interface RadioStore {
 const CLEARED_RADIO_STATE = {
     currentStationArt: null,
     currentStreamUrl: null,
+    externalMetadata: null,
     isPlaying: false,
     metadata: null,
     stationName: null,
 } as const;
+
+// YouTube / Twitch page URL -> direct audio stream via yt-dlp in the main process
+const playExternalStream = async (
+    pageUrl: string,
+    stationName?: string,
+    stationArt?: null | RadioCurrentStationArt,
+) => {
+    if (!isElectron() || !window.api?.streams) {
+        toast.error({ message: t('streams.desktopOnly') as string });
+        return;
+    }
+
+    try {
+        const resolved = await window.api.streams.resolve(pageUrl);
+        const art =
+            stationArt?.imageUrl || stationArt?.imageId || !resolved.thumbnail
+                ? (stationArt ?? null)
+                : {
+                      id: pageUrl,
+                      imageUrl: resolved.thumbnail,
+                      serverId: stationArt?.serverId ?? '',
+                  };
+
+        useRadioStore
+            .getState()
+            .actions.play(resolved.streamUrl, stationName || resolved.artist || undefined, art);
+        useRadioStore.setState({
+            externalMetadata: {
+                artist: resolved.artist,
+                isLive: resolved.isLive,
+                pageUrl,
+                title: resolved.title,
+            },
+        });
+    } catch (error) {
+        logger.error('Failed to resolve external stream', { error: (error as Error).message });
+        toast.error({
+            message: (error as Error).message,
+            title: t('streams.resolveFailed') as string,
+        });
+    }
+};
+
+/** A live stream stalled or lags behind: fetch a fresh link and jump to the live edge */
+export const goLive = () => {
+    const { currentStationArt, externalMetadata, stationName } = useRadioStore.getState();
+    if (!externalMetadata) return;
+    return playExternalStream(
+        externalMetadata.pageUrl,
+        stationName ?? undefined,
+        currentStationArt,
+    );
+};
 
 export const useRadioStore = createWithEqualityFn<RadioStore>((set) => ({
     actions: {
@@ -67,6 +131,11 @@ export const useRadioStore = createWithEqualityFn<RadioStore>((set) => ({
             stationName?: string,
             stationArt?: null | RadioCurrentStationArt,
         ) => {
+            if (streamUrl && isExternalStreamUrl(streamUrl)) {
+                playExternalStream(streamUrl, stationName, stationArt);
+                return;
+            }
+
             set((state) => {
                 const newStreamUrl = streamUrl ?? state.currentStreamUrl;
                 const newStationName = stationName ?? state.stationName;
@@ -93,6 +162,7 @@ export const useRadioStore = createWithEqualityFn<RadioStore>((set) => ({
                 return {
                     currentStationArt: nextStationArt,
                     currentStreamUrl: newStreamUrl,
+                    externalMetadata: isSwitchingStation ? null : state.externalMetadata,
                     isPlaying: true,
                     metadata: isSwitchingStation ? null : state.metadata,
                     stationName: newStationName,
@@ -121,6 +191,7 @@ export const useRadioStore = createWithEqualityFn<RadioStore>((set) => ({
     },
     currentStationArt: null,
     currentStreamUrl: null,
+    externalMetadata: null,
     isPlaying: false,
     metadata: null,
     stationName: null,
@@ -134,7 +205,7 @@ export const useRadioPlayer = () => {
     const currentStationArt = useRadioStore((state) => state.currentStationArt);
     const currentStreamUrl = useRadioStore((state) => state.currentStreamUrl);
     const isPlaying = useRadioStore((state) => state.isPlaying);
-    const metadata = useRadioStore((state) => state.metadata);
+    const metadata = useRadioStore((state) => state.metadata ?? state.externalMetadata);
     const stationName = useRadioStore((state) => state.stationName);
 
     return {
@@ -213,13 +284,14 @@ export const useRadioAudioInstance = () => {
 };
 
 export const useRadioMetadata = () => {
-    const { actions, currentStreamUrl } = useRadioStore();
+    const { actions, currentStreamUrl, externalMetadata } = useRadioStore();
     const { setMetadata } = actions;
+    const isExternal = Boolean(externalMetadata);
     const playbackType = usePlaybackType();
     const isUsingMpv = playbackType === PlayerType.LOCAL && mpvPlayer;
 
     useEffect(() => {
-        if (!currentStreamUrl) {
+        if (!currentStreamUrl || isExternal) {
             setMetadata(null);
             return;
         }
@@ -295,7 +367,7 @@ export const useRadioMetadata = () => {
             }
             setMetadata(null);
         };
-    }, [currentStreamUrl, setMetadata, isUsingMpv]);
+    }, [currentStreamUrl, setMetadata, isUsingMpv, isExternal]);
 };
 
 const RadioAudioInstanceHookInner = () => {

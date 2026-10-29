@@ -8,3 +8,5 @@ release
 .idea
 .scratch
 tsconfig.*.tsbuildinfo
+# bundled at build time by scripts/fetch-ytdlp.mjs
+build/yt-dlp/

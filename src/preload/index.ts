@@ -6,11 +6,13 @@ import { customThemes } from './custom-themes';
 import { discordRpc } from './discord-rpc';
 import { dlnaPlayer, dlnaPlayerListener } from './dlna-player';
 import { ipc } from './ipc';
+import { localLibrary } from './local-library';
 import { localSettings } from './local-settings';
 import { lyrics } from './lyrics';
 import { mpris } from './mpris';
 import { mpvPlayer, mpvPlayerListener } from './mpv-player';
 import { remote } from './remote';
+import { streams } from './streams';
 import { utils } from './utils';
 import { visualizer } from './visualizer';
 
@@ -24,12 +26,14 @@ const api = {
     dlnaPlayerListener,
     getPathForFile: webUtils.getPathForFile,
     ipc,
+    localLibrary,
     localSettings,
     lyrics,
     mpris,
     mpvPlayer,
     mpvPlayerListener,
     remote,
+    streams,
     utils,
     visualizer,
 };

@@ -3,11 +3,8 @@ import { Fragment, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 
-import styles from './app-menu.module.css';
-
 import { UpdateAvailableButton } from '/@/renderer/features/settings/components/update-available-button';
 import { openSettingsModal } from '/@/renderer/features/settings/utils/open-settings-modal';
-import { ServerSelector } from '/@/renderer/features/sidebar/components/server-selector';
 import { openReleaseNotesModal } from '/@/renderer/release-notes-modal';
 import {
     useAppStore,
@@ -132,23 +129,7 @@ export const AppMenu = () => {
 
     const { currentVersion } = useLatestVersion();
 
-    const serverHeaderMenuItems: MenuItem[] = currentServer
-        ? [
-              {
-                  component: (
-                      <div className={styles.serverSelector}>
-                          <ServerSelector />
-                      </div>
-                  ),
-                  id: 'server-selector',
-                  type: 'custom',
-              },
-              {
-                  id: 'divider-server',
-                  type: 'divider',
-              },
-          ]
-        : [];
+    const serverHeaderMenuItems: MenuItem[] = currentServer ? [] : [];
 
     const menuConfig: MenuItem[] = [
         ...serverHeaderMenuItems,

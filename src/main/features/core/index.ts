@@ -1,10 +1,12 @@
 import './autodiscover';
 import './dlna';
 import './custom-themes';
+import './local-library';
 import './lyrics';
 import './player';
 import './remote';
 import './settings';
+import './streams';
 import './discord-rpc';
 import './tag-editor';
 import './visualizer';

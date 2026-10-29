@@ -1,227 +1,180 @@
-<img src="assets/icons/icon.png" alt="logo" title="feishin" align="right" height="60px" width="60px" />
+<div align="center">
 
-# Feishin
+<img src="media/tesuplayer.png" width="200" alt="TesuPlayer logo"/>
 
-  <p align="center">
-    <a href="https://github.com/jeffvli/feishin/blob/main/LICENSE">
-      <img src="https://img.shields.io/github/license/jeffvli/feishin?style=flat-square&color=brightgreen"
-      alt="License">
-    </a>
-      <a href="https://github.com/jeffvli/feishin/releases">
-      <img src="https://img.shields.io/github/v/release/jeffvli/feishin?style=flat-square&color=blue"
-      alt="Release">
-    </a>
-    <a href="https://github.com/jeffvli/feishin/releases">
-      <img src="https://img.shields.io/github/downloads/jeffvli/feishin/total?style=flat-square&color=orange"
-      alt="Downloads">
-    </a>
-  </p>
-  <p align="center">
-    <a href="https://discord.gg/FVKpcMDy5f">
-      <img src="https://img.shields.io/discord/922656312888811530?color=black&label=discord&logo=discord&logoColor=white"
-      alt="Discord">
-    </a>
-    <a href="https://matrix.to/#/#sonixd:matrix.org">
-      <img src="https://img.shields.io/matrix/sonixd:matrix.org?color=black&label=matrix&logo=matrix&logoColor=white"
-      alt="Matrix">
-    </a>
-  </p>
+# ✨ TesuPlayer
 
----
+**Музыкальный плеер для своей музыки, YouTube и Twitch — на компьютере и Android. Без чужих серверов: компьютер сам становится сервером для телефона.**
 
-Rewrite of [Sonixd](https://github.com/jeffvli/sonixd).
+<p>
+  <img src="https://img.shields.io/github/last-commit/tesutavt/TesuPlayer?style=for-the-badge&labelColor=363a4f&color=b7bdf8&label=Обновлено" alt="Last commit"/>
+  <img src="https://img.shields.io/github/repo-size/tesutavt/TesuPlayer?style=for-the-badge&labelColor=363a4f&color=c6a0f6&label=Размер" alt="Repo size"/>
+  <img src="https://img.shields.io/github/stars/tesutavt/TesuPlayer?style=for-the-badge&labelColor=363a4f&color=eed49f&label=Звёзды" alt="Stars"/>
+  <img src="https://img.shields.io/github/license/tesutavt/TesuPlayer?style=for-the-badge&labelColor=363a4f&color=a6da95&label=Лицензия" alt="License"/>
+</p>
 
-## Features
+<img src="https://img.shields.io/badge/статус-в%20разработке-f5a97f?style=flat-square&labelColor=363a4f" alt="Status"/>
+<img src="https://img.shields.io/badge/форк-jeffvli%2Ffeishin-8aadf4?style=flat-square&labelColor=363a4f&logo=github" alt="Fork of Feishin"/>
 
-- [x] MPV player backend
-- [x] Web player backend
-- [x] Modern UI
-- [x] Scrobble playback to your server
-- [x] Smart playlist editor (Navidrome)
-- [x] Synchronized and unsynchronized lyrics support
-- [ ] [Request a feature](https://github.com/jeffvli/feishin/issues) or [view taskboard](https://github.com/users/jeffvli/projects/5/views/1)
+<br/><br/>
 
-## Screenshots
+[📦 Релизы](https://github.com/tesutavt/TesuPlayer/releases) · [🐛 Сообщить об ошибке](https://github.com/tesutavt/TesuPlayer/issues) · [💡 Предложить идею](https://github.com/tesutavt/TesuPlayer/issues) · [🎵 Оригинал — Feishin](https://github.com/jeffvli/feishin)
 
-<a href="./media/preview_full_screen_player.png"><img src="./media/preview_full_screen_player.png" width="49.5%"/></a> <a href="./media/preview_album_artist_detail.png"><img src="./media/preview_album_artist_detail.png" width="49.5%"/></a> <a href="./media/preview_album_detail.png"><img src="./media/preview_album_detail.png" width="49.5%"/></a> <a href="./media/preview_smart_playlist.png"><img src="./media/preview_smart_playlist.png" width="49.5%"/></a>
+</div>
 
-## Getting Started
+<img src="https://raw.githubusercontent.com/catppuccin/catppuccin/main/assets/palette/macchiato.png" width="100%" height="2" alt=""/>
 
-### Desktop (recommended)
+> [!NOTE]
+> TesuPlayer — **форк [Feishin](https://github.com/jeffvli/feishin)** от [jeffvli](https://github.com/jeffvli) и его контрибьюторов.
+> Интерфейс плеера — их работа; здесь добавлены встроенная библиотека и свой сервер, YouTube, Twitch, нативное Android-приложение и своё оформление.
+> Лицензия та же — [GPL-3.0](LICENSE).
 
-Download the [latest desktop client](https://github.com/jeffvli/feishin/releases). The desktop client is the recommended way to use Feishin. It supports both the MPV and web player backends, as well as includes built-in fetching for lyrics.
+<details>
+<summary><b>📑 Содержание</b></summary>
 
-#### macOS Notes
+- [О проекте](#-о-проекте)
+- [Скриншоты](#-скриншоты)
+- [Возможности](#-возможности)
+- [Технологии](#%EF%B8%8F-технологии)
+- [Установка и запуск](#-установка-и-запуск)
+- [Структура проекта](#-структура-проекта)
+- [Планы](#%EF%B8%8F-планы)
+- [Автор](#-автор)
 
-If you're using a device running macOS 12 (Monterey) or higher, [check here](https://github.com/jeffvli/feishin/issues/104#issuecomment-1553914730) for instructions on how to remove the app from quarantine.
+</details>
 
-For media keys to work, you will be prompted to allow Feishin to be a Trusted Accessibility Client. After allowing, you will need to restart Feishin for the privacy settings to take effect.
+## 📖 О проекте
 
-#### Linux Notes
+TesuPlayer — обычный музыкальный плеер: открыл, выбрал папку с музыкой, слушаешь. Никаких серверов настраивать не нужно.
 
-Feishin is available in [Flathub](https://flathub.org/en/apps/org.jeffvli.feishin).
+Если хочется слушать ту же музыку с телефона или другого компьютера, в настройках включается **«Доступ с других устройств»**: TesuPlayer на ПК становится сервером для ваших устройств. Плейлисты, избранное и прослушивания хранятся на ПК и одинаковы везде, а в разделе **«Где играет»** видно, на каком устройстве что играет, и им можно управлять.
 
-Alternatively, you can install it as an Appimage. We provide a small install script to download the latest `.AppImage`, make it executable, and also download the icons required by Desktop Environments. Finally, it generates a `.desktop` file to add Feishin to your Application Launcher.
+Отдельно — **YouTube и Twitch**: поиск в одной строке, стримы как радио, а песни с YouTube можно скачать именно как музыку (аудиофайл с названием, исполнителем и обложкой). Всё работает из коробки: [yt-dlp](https://github.com/yt-dlp/yt-dlp) уже лежит в установщике и сам обновляется.
 
-Simply run the installer like this:
+## 📸 Скриншоты
 
-```sh
-dir=/your/application/directory
-curl 'https://raw.githubusercontent.com/jeffvli/feishin/refs/heads/development/install-feishin-appimage' | sh -s -- "$dir"
-```
+<!-- Скриншоты десктопного интерфейса из Feishin; свои пока не сделаны -->
+<p align="center">
+  <img src="media/preview_full_screen_player.png" width="45%" alt="Полноэкранный плеер"/>
+  &nbsp;
+  <img src="media/preview_album_detail.png" width="45%" alt="Альбом"/>
+</p>
 
-The script also has an option to add launch arguments to run Feishin in native Wayland mode. Note that this is experimental in Electron and therefore not officially supported. If you want to use it, run this instead:
+## 🌟 Возможности
 
-```sh
-dir=/your/application/directory
-curl 'https://raw.githubusercontent.com/jeffvli/feishin/refs/heads/development/install-feishin-appimage' | sh -s -- "$dir" wayland-native
-```
+**Компьютер (Windows / Linux / macOS)**
+- ✅ Своя библиотека: папки с музыкой сканируются сами (по умолчанию «Музыка»), теги и обложки из файлов
+- ✅ Всё из Feishin: альбомы, исполнители, жанры, плейлисты, тексты песен, эквалайзер, визуализатор, Discord RPC
+- ✅ **YouTube + Twitch** в одной строке поиска; Twitch-канал сразу показывает, в эфире ли он и что стримит
+- ✅ **«Скачать»** с YouTube — m4a-аудио с тегами и обложкой в «Музыка/TesuPlayer/YouTube», сразу в библиотеке
+- ✅ Кнопка **«● В эфир»** — если стрим подвис, вернуться к прямому эфиру
+- ✅ **Избранное** (каналы и видео) хранится в «Радиостанциях» и видно на всех устройствах
+- ✅ **Свой сервер**: доступ с телефона и других ПК по логину и паролю (совместим с Subsonic-клиентами)
+- ✅ **«Где играет»**: устройства, что на них играет, пауза/переключение и «Слушать здесь»
+- ✅ Можно слушать библиотеку другого компьютера с TesuPlayer
 
-It also provides a simple uninstall routine, removing the downloaded files:
+**Android (Kotlin + Jetpack Compose)**
+- ✅ Музыка с самого телефона — сразу, без входа и интернета
+- ✅ Библиотека своего ПК: альбомы, плейлисты, ★ избранное, поиск; прослушивания синхронизируются
+- ✅ Поиск по телефону, компьютеру или YouTube + Twitch
+- ✅ Плеер Media3: кнопки в уведомлении и на экране блокировки, гарнитура, очередь, перемешивание, повтор
+- ✅ YouTube «Скачать как музыку» → «Музыка/TesuPlayer»; треки с ПК — для офлайна
+- ✅ «Где играет» и «Слушать здесь», «Вернуться в эфир» для Twitch
+- ✅ «Поделиться» ссылкой YouTube/Twitch из любого приложения → сразу играет
 
-```sh
-dir=/your/application/directory
-curl 'https://raw.githubusercontent.com/jeffvli/feishin/refs/heads/development/install-feishin-appimage' | sh -s -- "$dir" remove
-```
+## 🛠️ Технологии
 
-The entry should show up in your Application Launcher immediately. If it does not, simply log out, wait 10 seconds, and log back in. Your Desktop Environment may alternatively provide a way to reload entries.
+<p align="left">
+  <img src="https://skillicons.dev/icons?i=ts,react,electron,vite,kotlin,androidstudio,python" alt="Tech stack"/>
+</p>
 
-### Web and Docker
+## 🚀 Установка и запуск
 
-Visit [https://feishin.vercel.app](https://feishin.vercel.app) to use the hosted web version of Feishin. The web client only supports the web player backend.
+### Готовые сборки
 
-Feishin is also available as a Docker image. The images are hosted via `ghcr.io` and are available to view [here](https://github.com/jeffvli/feishin/pkgs/container/feishin). You can run the container using the following commands:
+Скачайте из [Релизов](https://github.com/tesutavt/TesuPlayer/releases): `TesuPlayer-*-win-x64.exe` для Windows или `TesuPlayer-*.apk` для Android (разрешите установку из неизвестных источников).
 
-```bash
-# Run the latest version
-docker run --name feishin -p 9180:9180 ghcr.io/jeffvli/feishin:latest
+### Телефон + компьютер
 
-# Build the image locally
-docker build -t feishin .
-docker run --name feishin -p 9180:9180 feishin
-```
+1. На ПК: **Настройки → Моя музыка → Доступ с других устройств** — включить, запомнить логин, пароль и адрес.
+2. На телефоне: **Настройки → Мой компьютер** — ввести адрес, логин и пароль.
+3. Вне дома: пробросьте порт (по умолчанию `45173`) на роутере или используйте Tailscale / ZeroTier.
 
-#### Docker Compose
+### Компьютер из исходников
 
-To install via Docker Compose, use the following snippet. This also works on Portainer.
-
-```yaml
-services:
-    feishin:
-        container_name: feishin
-        image: 'ghcr.io/jeffvli/feishin:latest'
-        restart: unless-stopped
-        environment:
-            - SERVER_NAME=jellyfin # pre-defined server name
-            - SERVER_LOCK=true # When true AND name/type/url are set, only username/password can be toggled
-            - SERVER_TYPE=jellyfin # the allowed types are: jellyfin, navidrome, subsonic. These values are case insensitive
-            - SERVER_URL= # http://address:port or https://address:port
-            - REMOTE_URL= # http://address or https://address
-            - LEGACY_AUTHENTICATION=false # When SERVER_LOCK is true, sets the legacy (plaintext) authentication flag for Subsonic/OpenSubsonic servers
-            - ANALYTICS_DISABLED=true # Set to true to disable Umami analytics tracking
-        ports:
-            - 9180:9180
-            # Alternatively, to restrict to only localhost, - 127.0.0.1:9180:8190
-```
-
-### Configuration
-
-1. Upon startup you will be greeted with a prompt to select the path to your MPV binary. If you do not have MPV installed, you can download it [here](https://mpv.io/installation/) or install it using any package manager supported by your OS. After inputting the path, restart the app.
-
-2. After restarting the app, you will be prompted to select a server. Click the `Open menu` button and select `Manage servers`. Click the `Add server` button in the popup and fill out all applicable details. You will need to enter the full URL to your server, including the protocol and port if applicable (e.g. `https://navidrome.my-server.com` or `http://192.168.0.1:4533`).
-
-- **Navidrome** - For the best experience, select "Save password" when creating the server and configure the `SessionTimeout` setting in your Navidrome config to a larger value (e.g. 72h).
-    - **Linux users** - The default password store uses `libsecret`. `kwallet4/5/6` are also supported, but must be explicitly set in Settings > Window > Passwords/secret store.
-
-3. _Optional_ - If you want to host Feishin on a subpath (not `/`), then pass in the following environment variable: `PUBLIC_PATH=PATH`. For example, to host on `/feishin`, pass in `PUBLIC_PATH=/feishin`.
-
-4. _Optional_ - To hard code the server url, pass the following environment variables: `SERVER_NAME`, `SERVER_TYPE` (one of `jellyfin` or `navidrome` or `subsonic`), `SERVER_URL`. To prevent users from changing these settings, pass `SERVER_LOCK=true`. This can only be set if all three of the previous values are set. When `SERVER_LOCK=true`, you can also set `LEGACY_AUTHENTICATION=true` or `LEGACY_AUTHENTICATION=false` to configure the legacy authentication flag for the server (only applicable for Subsonic/OpenSubsonic servers).
-
-5. _Optional_ - If your server uses a separate public-facing URL than what integrating applications use internally to communicate with your server, such as a separate Navidrome `ShareURL`, set `REMOTE_URL` to said public-facing URL.
-
-6. _Optional_ - To disable Umami analytics tracking in the Docker/web version, set the environment variable `ANALYTICS_DISABLED=true`. When enabled, the analytics script will not be loaded and all tracking will be disabled.
-
-7. _Optional_ - App settings (theme, language, sidebar options, etc.) can be overridden with environment variables on first run. The variables use the `FS_` prefix (e.g. `FS_GENERAL_THEME=defaultDark`, `FS_GENERAL_LANGUAGE=de`). See [the settings environment variable documentation](docs/ENV_SETTINGS.md) for the full list.
-
-## FAQ
-
-### MPV is either not working or is rapidly switching between pause/play states
-
-First thing to do is check that your MPV binary path is correct. Navigate to the settings page and re-set the path and restart the app. If your issue still isn't resolved, try reinstalling MPV. Known working versions include `v0.35.x` and `v0.36.x`. `v0.34.x` is a known broken version.
-
-### What music servers does Feishin support?
-
-Feishin supports any music server that implements a [Navidrome](https://www.navidrome.org/), [Jellyfin](https://jellyfin.org/), or [OpenSubsonic compatible](https://opensubsonic.netlify.app/) API.
-
-- [Navidrome](https://github.com/navidrome/navidrome)
-- [Jellyfin](https://github.com/jellyfin/jellyfin)
-- [OpenSubsonic](https://opensubsonic.netlify.app/) compatible servers, such as...
-    - [Airsonic-Advanced](https://github.com/airsonic-advanced/airsonic-advanced)
-    - [Ampache](https://ampache.org)
-    - [Astiga](https://asti.ga/)
-    - [Funkwhale](https://www.funkwhale.audio/)
-    - [Gonic](https://github.com/sentriz/gonic)
-    - [LMS](https://github.com/epoupon/lms)
-    - [Nextcloud Music](https://apps.nextcloud.com/apps/music)
-    - [Supysonic](https://github.com/spl0k/supysonic)
-    - [Qm-Music](https://github.com/chenqimiao/qm-music)
-    - More (?)
-
-- [Plex](https://www.plex.tv/media-server-downloads)
-    - [Feishin fork by lux032](https://github.com/lux032/feishin) - Plex is not natively supported. Use the fork by lux032 to use Plex with Feishin.
-
-### I have the issue "The SUID sandbox helper binary was found, but is not configured correctly" on Linux
-
-This happens when you have user (unprivileged) namespaces disabled (`sysctl kernel.unprivileged_userns_clone` returns 0). You can fix this by either enabling unprivileged namespaces, or by making the `chrome-sandbox` Setuid.
+**Требования:** Node.js 22+, pnpm 11
 
 ```bash
-chmod 4755 chrome-sandbox
-sudo chown root:root chrome-sandbox
+git clone https://github.com/tesutavt/TesuPlayer.git
+cd TesuPlayer
+pnpm install
+pnpm dev                 # режим разработки
+pnpm run package:win     # установщик Windows → dist/ (yt-dlp кладётся внутрь автоматически)
 ```
 
-Ubuntu 24.04 specifically introduced breaking changes that affect how namespaces work. Please see https://discourse.ubuntu.com/t/ubuntu-24-04-lts-noble-numbat-release-notes/39890#:~:text=security%20improvements%20 for possible fixes.
+### Android из исходников
 
-### How can I add custom themes?
+**Требования:** JDK 17+, Android SDK 35 (путь — в `android/local.properties`: `sdk.dir=...`)
 
-On the desktop app, you can add custom themes by dropping JSON files into the Themes folder (Settings → General → Theme → Open Folder). See [the custom themes documentation](docs/CUSTOM_THEMES.md) for the file format and examples.
+```bash
+cd android
+./gradlew assembleRelease   # → app/build/outputs/apk/release/app-release.apk
+```
 
-## Development
+Иконки всех размеров (десктоп и Android) генерируются из `media/tesuplayer.svg`: `node scripts/generate-icons.mjs`.
 
-Built and tested using Node `v23.11.0`.
+## 📂 Структура проекта
 
-This project is built off of [electron-vite](https://github.com/alex8088/electron-vite)
+```
+TesuPlayer/
+├── src/
+│   ├── main/features/core/
+│   │   ├── local-library/   # сканер музыки + встроенный сервер (Subsonic API, устройства, синхронизация)
+│   │   └── streams/         # YouTube / Twitch через yt-dlp, скачивание аудио
+│   ├── renderer/features/
+│   │   ├── local-library/   # «Моя музыка» в настройках, подключение к другому ПК
+│   │   ├── streams/         # страница «YouTube / Twitch»
+│   │   └── devices/         # «Где играет»
+│   └── shared/              # общие типы
+├── android/                 # Android-приложение (Kotlin, Compose, Media3, youtubedl-android)
+├── media/tesuplayer.svg     # исходник иконки
+├── scripts/                 # generate-icons.mjs, fetch-ytdlp.mjs
+└── README.md
+```
 
-- `pnpm run dev` - Start the development server
-- `pnpm run dev:watch` - Start the development server in watch mode (for main / preload HMR)
-- `pnpm run start` - Starts the app in production preview mode
-- `pnpm run build` - Builds the app for desktop
-- `pnpm run build:electron` - Build the electron app (main, preload, and renderer)
-- `pnpm run build:remote` - Build the remote app (remote)
-- `pnpm run build:web` - Build the standalone web app (renderer)
-- `pnpm run package` - Package the project
-- `pnpm run package:dev` - Package the project for development locally
-- `pnpm run package:linux` - Package the project for Linux locally
-- `pnpm run package:mac` - Package the project for Mac locally
-- `pnpm run package:win` - Package the project for Windows locally
-- `pnpm run publish:linux` - Publish the project for Linux
-- `pnpm run publish:linux:beta` - Publish the project for Linux (beta channel)
-- `pnpm run publish:linux-arm64` - Publish the project for Linux ARM64
-- `pnpm run publish:linux-arm64:beta` - Publish the project for Linux ARM64 (beta channel)
-- `pnpm run publish:mac` - Publish the project for Mac
-- `pnpm run publish:mac:beta` - Publish the project for Mac (beta channel)
-- `pnpm run publish:win` - Publish the project for Windows
-- `pnpm run publish:win:beta` - Publish the project for Windows (beta channel)
-- `pnpm run typecheck` - Type check the project
-- `pnpm run typecheck:node` - Type check the project with tsconfig.node.json
-- `pnpm run typecheck:web` - Type check the project with tsconfig.web.json
-- `pnpm run lint` - Lint the project
-- `pnpm run lint:fix` - Lint the project and fix linting errors
-- `pnpm run i18next` - Generate i18n files
+## 🗺️ Планы
 
-## Translation
+- [x] Своя библиотека без серверов
+- [x] YouTube и Twitch из коробки, скачивание как музыки
+- [x] Свой сервер, синхронизация и «Где играет»
+- [x] Android-приложение с музыкой телефона и офлайном
+- [ ] Свои скриншоты
+- [ ] Исполнители и жанры в Android-версии
+- [ ] Подпись релизов своим ключом
 
-This project uses [Weblate](https://hosted.weblate.org/projects/feishin/) for translations. If you would like to contribute, please visit the link and submit a translation.
+## 💜 Автор
 
-## License
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/tesutavt">
+        <img src="https://github.com/tesutavt.png" width="100" style="border-radius:50%" alt="Tesuta"/><br/>
+        <b>Tesuta</b>
+      </a><br/>
+      <sub>втубер · программист</sub>
+    </td>
+    <td align="center">
+      <a href="https://github.com/jeffvli/feishin">
+        <img src="https://github.com/jeffvli.png" width="100" style="border-radius:50%" alt="jeffvli"/><br/>
+        <b>jeffvli</b>
+      </a><br/>
+      <sub>автор оригинального Feishin</sub>
+    </td>
+  </tr>
+</table>
 
-[GNU General Public License v3.0 ©](https://github.com/jeffvli/feishin/blob/dev/LICENSE)
+<img src="https://raw.githubusercontent.com/catppuccin/catppuccin/main/assets/palette/macchiato.png" width="100%" height="2" alt=""/>
+
+<p align="center">
+  <i>Если проект понравился — поставь ⭐, мне будет приятно! И загляни к <a href="https://github.com/jeffvli/feishin">оригиналу</a>.</i>
+</p>

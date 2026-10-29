@@ -146,10 +146,6 @@ const rendererOpenCommandPalette = (cb: () => void) => {
     ipcRenderer.on('renderer-open-command-palette', () => cb());
 };
 
-const rendererOpenManageServers = (cb: () => void) => {
-    ipcRenderer.on('renderer-open-manage-servers', () => cb());
-};
-
 const rendererOpenCreatePlaylist = (cb: () => void) => {
     ipcRenderer.on('renderer-open-create-playlist', () => cb());
 };
@@ -194,7 +190,6 @@ export const utils = {
     readSongMetadataBatch,
     rendererOpenCommandPalette,
     rendererOpenCreatePlaylist,
-    rendererOpenManageServers,
     rendererOpenReleaseNotes,
     rendererOpenSettings,
     rendererTogglePrivateMode,

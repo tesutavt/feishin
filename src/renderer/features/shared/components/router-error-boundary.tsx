@@ -1,7 +1,6 @@
 import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
-import { ServerSelector } from '/@/renderer/features/sidebar/components/server-selector';
 import { Box } from '/@/shared/components/box/box';
 import { Button } from '/@/shared/components/button/button';
 import { Center } from '/@/shared/components/center/center';
@@ -32,17 +31,6 @@ const RouterErrorFallback = ({ error, resetErrorBoundary }: RouterErrorFallbackP
                 width: '100vw',
             }}
         >
-            <Box
-                style={{
-                    padding: 'var(--theme-spacing-md)',
-                    position: 'absolute',
-                    right: 0,
-                    top: 0,
-                    zIndex: 1000,
-                }}
-            >
-                <ServerSelector />
-            </Box>
             <Center h="100vh" p="md" w="100%">
                 <Stack maw="800px">
                     <Group gap="xs">

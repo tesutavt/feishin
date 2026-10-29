@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.TesuPlayer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#FF24273A</item>
+        <item name="android:statusBarColor">#FF24273A</item>
+        <item name="android:navigationBarColor">#FF1E2030</item>
+    </style>
+</resources>

@@ -66,7 +66,8 @@ export const useAudioDevices = (playbackType: PlayerType) => {
                 return;
             }
 
-            if (playbackType === PlayerType.WEB) {
+            // mpv is optional: when it did not start, playback falls back to the web player
+            if (playbackType === PlayerType.WEB || !mpvPlayer || !mpvInitialized) {
                 getAudioDevices()
                     .then((dev) => {
                         const uniqueDevices = dev.filter(

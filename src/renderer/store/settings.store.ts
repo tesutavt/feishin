@@ -1019,6 +1019,7 @@ export enum SidebarItem {
     ARTISTS = 'Artists',
     ARTISTS_ALL = 'Artists-all',
     COLLECTIONS = 'Collections',
+    DEVICES = 'Devices',
     FAVORITES = 'Favorites',
     FOLDERS = 'Folders',
     GENRES = 'Genres',
@@ -1028,6 +1029,7 @@ export enum SidebarItem {
     RADIO = 'Radio',
     SEARCH = 'Search',
     SETTINGS = 'Settings',
+    STREAMS = 'Streams',
     TRACKS = 'Tracks',
 }
 
@@ -1233,9 +1235,21 @@ export const sidebarItems: SidebarItemType[] = [
     },
     {
         disabled: false,
+        id: 'Streams',
+        label: 'YouTube / Twitch',
+        route: AppRoute.STREAMS,
+    },
+    {
+        disabled: false,
         id: 'Radio',
         label: i18n.t('page.sidebar.radio'),
         route: AppRoute.RADIO,
+    },
+    {
+        disabled: false,
+        id: 'Devices',
+        label: 'Где играет',
+        route: AppRoute.DEVICES,
     },
     {
         disabled: true,
@@ -2144,7 +2158,7 @@ const initialState: SettingsState = {
         port: 4333,
         username: 'feishin',
     },
-    tab: 'general',
+    tab: 'library',
     tagEditor: {
         tagConfigs: {
             albumArtist: {
@@ -2933,10 +2947,33 @@ export const useSettingsStore = createWithEqualityFn<SettingsSlice>()(
                     });
                 }
 
+                if (version < 35) {
+                    if (!state.general.sidebarItems.some((item: any) => item.id === 'Streams')) {
+                        state.general.sidebarItems.unshift({
+                            disabled: false,
+                            id: 'Streams',
+                            label: 'YouTube / Twitch',
+                            route: AppRoute.STREAMS,
+                        });
+                    }
+                    state.tab = 'library';
+                }
+
+                if (version < 36) {
+                    if (!state.general.sidebarItems.some((item: any) => item.id === 'Devices')) {
+                        state.general.sidebarItems.push({
+                            disabled: false,
+                            id: 'Devices',
+                            label: 'Где играет',
+                            route: AppRoute.DEVICES,
+                        });
+                    }
+                }
+
                 return persistedState;
             },
             name: 'store_settings',
-            version: 34,
+            version: 36,
         },
     ),
 );

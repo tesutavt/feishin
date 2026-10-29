@@ -110,12 +110,6 @@ export default class MenuBuilder {
                 },
                 { type: 'separator' },
                 {
-                    click: () => {
-                        this.mainWindow.webContents.send('renderer-open-manage-servers');
-                    },
-                    label: 'Manage Servers...',
-                },
-                {
                     checked: privateMode,
                     click: () => {
                         this.mainWindow.webContents.send('renderer-toggle-private-mode');
@@ -180,7 +174,7 @@ export default class MenuBuilder {
             submenu: [
                 {
                     click: this.showMainWindow,
-                    label: 'Show Feishin',
+                    label: 'Show TesuPlayer',
                 },
             ],
         };
@@ -309,27 +303,27 @@ export default class MenuBuilder {
             submenu: [
                 {
                     click() {
-                        shell.openExternal('https://github.com/jeffvli/feishin');
+                        shell.openExternal('https://github.com/tesutavt/TesuPlayer');
                     },
                     label: 'Learn More',
                 },
                 {
                     click() {
                         shell.openExternal(
-                            'https://github.com/jeffvli/feishin?tab=readme-ov-file#getting-started',
+                            'https://github.com/tesutavt/TesuPlayer?tab=readme-ov-file#getting-started',
                         );
                     },
                     label: 'Documentation',
                 },
                 {
                     click() {
-                        shell.openExternal('https://github.com/jeffvli/feishin/discussions');
+                        shell.openExternal('https://github.com/tesutavt/TesuPlayer/discussions');
                     },
                     label: 'Community Discussions',
                 },
                 {
                     click() {
-                        shell.openExternal('https://github.com/jeffvli/feishin/issues');
+                        shell.openExternal('https://github.com/tesutavt/TesuPlayer/issues');
                     },
                     label: 'Search Issues',
                 },
@@ -426,27 +420,29 @@ export default class MenuBuilder {
                 submenu: [
                     {
                         click() {
-                            shell.openExternal('https://github.com/jeffvli/feishin');
+                            shell.openExternal('https://github.com/tesutavt/TesuPlayer');
                         },
                         label: 'Learn More',
                     },
                     {
                         click() {
                             shell.openExternal(
-                                'https://github.com/jeffvli/feishin?tab=readme-ov-file#getting-started',
+                                'https://github.com/tesutavt/TesuPlayer?tab=readme-ov-file#getting-started',
                             );
                         },
                         label: 'Documentation',
                     },
                     {
                         click() {
-                            shell.openExternal('https://github.com/jeffvli/feishin/discussions');
+                            shell.openExternal(
+                                'https://github.com/tesutavt/TesuPlayer/discussions',
+                            );
                         },
                         label: 'Community Discussions',
                     },
                     {
                         click() {
-                            shell.openExternal('https://github.com/jeffvli/feishin/issues');
+                            shell.openExternal('https://github.com/tesutavt/TesuPlayer/issues');
                         },
                         label: 'Search Issues',
                     },

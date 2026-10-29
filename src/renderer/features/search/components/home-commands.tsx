@@ -65,12 +65,6 @@ export const HomeCommands = ({
                 <Command.Item onSelect={() => setPages([...pages, CommandPalettePages.GO_TO])}>
                     {t('page.globalSearch.commands.goToPage')}...
                 </Command.Item>
-                <Command.Item
-                    onSelect={() => setPages([...pages, CommandPalettePages.MANAGE_SERVERS])}
-                >
-                    {t('page.globalSearch.commands.serverCommands')}
-                    ...
-                </Command.Item>
             </Command.Group>
         </>
     );

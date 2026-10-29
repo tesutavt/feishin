@@ -4,8 +4,13 @@ import { Link } from 'react-router';
 
 import styles from './left-controls.module.css';
 
-import { useIsRadioActive, useRadioStore } from '/@/renderer/features/radio/hooks/use-radio-player';
+import {
+    goLive,
+    useIsRadioActive,
+    useRadioStore,
+} from '/@/renderer/features/radio/hooks/use-radio-player';
 import { AppRoute } from '/@/renderer/router/routes';
+import { Button } from '/@/shared/components/button/button';
 import { Group } from '/@/shared/components/group/group';
 import { Icon } from '/@/shared/components/icon/icon';
 import { Text } from '/@/shared/components/text/text';
@@ -20,8 +25,9 @@ export const RadioMetadataDisplay = ({
     onStopPropagation,
     onToggleContextMenu,
 }: RadioMetadataDisplayProps) => {
-    const radioMetadata = useRadioStore((state) => state.metadata);
+    const radioMetadata = useRadioStore((state) => state.metadata ?? state.externalMetadata);
     const stationName = useRadioStore((state) => state.stationName);
+    const external = useRadioStore((state) => state.externalMetadata);
 
     const isRadioActive = useIsRadioActive();
 
@@ -64,10 +70,25 @@ export const RadioMetadataDisplay = ({
                         isNoSelect
                         overflow="hidden"
                         size="md"
-                        to={AppRoute.RADIO}
+                        to={external ? AppRoute.STREAMS : AppRoute.RADIO}
                     >
                         {stationName || '—'}
                     </Text>
+                    {external?.isLive && (
+                        <Button
+                            color="red"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                goLive();
+                            }}
+                            px={6}
+                            size="compact-xs"
+                            title="Стрим подвис или отстаёт: перейти к прямому эфиру"
+                            variant="light"
+                        >
+                            ● В эфир
+                        </Button>
+                    )}
                 </Group>
             </div>
         </>

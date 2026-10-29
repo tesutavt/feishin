@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { HashRouter, Route, Routes } from 'react-router';
+import { HashRouter, Navigate, Route, Routes } from 'react-router';
 
 import { ShuffleAllContextModal } from '/@/renderer/features/player/components/shuffle-all-modal';
 import { SettingsContextModal } from '/@/renderer/features/settings/components/settings-modal';
@@ -28,15 +28,9 @@ const PlaylistListRoute = lazy(
     () => import('/@/renderer/features/playlists/routes/playlist-list-route'),
 );
 
-const ActionRequiredRoute = lazy(
-    () => import('/@/renderer/features/action-required/routes/action-required-route'),
-);
-
 const InvalidRoute = lazy(
     () => import('/@/renderer/features/action-required/routes/invalid-route'),
 );
-
-const LoginRoute = lazy(() => import('/@/renderer/features/login/routes/login-route'));
 
 const NoNetworkRoute = lazy(
     () => import('/@/renderer/features/action-required/routes/no-network-route'),
@@ -79,6 +73,10 @@ const GenreDetailRoute = lazy(
 const FolderListRoute = lazy(() => import('/@/renderer/features/folders/routes/folder-list-route'));
 
 const RadioListRoute = lazy(() => import('/@/renderer/features/radio/routes/radio-list-route'));
+
+const StreamsRoute = lazy(() => import('/@/renderer/features/streams/routes/streams-route'));
+
+const DevicesRoute = lazy(() => import('/@/renderer/features/devices/routes/devices-route'));
 
 const SearchRoute = lazy(() => import('/@/renderer/features/search/routes/search-route'));
 
@@ -301,6 +299,8 @@ export const AppRouter = () => {
                                             path={AppRoute.PLAYLISTS}
                                         />
                                         <Route element={<RadioListRoute />} path={AppRoute.RADIO} />
+                                        <Route element={<StreamsRoute />} path={AppRoute.STREAMS} />
+                                        <Route element={<DevicesRoute />} path={AppRoute.DEVICES} />
                                         <Route
                                             element={<PlaylistDetailSongListRoute />}
                                             path={AppRoute.PLAYLISTS_DETAIL_SONGS}
@@ -344,11 +344,15 @@ export const AppRouter = () => {
                         </Route>
                         <Route element={<TitlebarOutlet />}>
                             <Route element={<ResponsiveLayout shell />}>
+                                {/* no servers to set up: the local library connects itself */}
                                 <Route
-                                    element={<ActionRequiredRoute />}
+                                    element={<Navigate replace to={AppRoute.HOME} />}
                                     path={AppRoute.ACTION_REQUIRED}
                                 />
-                                <Route element={<LoginRoute />} path={AppRoute.LOGIN} />
+                                <Route
+                                    element={<Navigate replace to={AppRoute.HOME} />}
+                                    path={AppRoute.LOGIN}
+                                />
                             </Route>
                             <Route element={<ResponsiveLayout />}>
                                 <Route element={<NoNetworkRoute />} path={AppRoute.NO_NETWORK} />

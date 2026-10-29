@@ -1,4 +1,3 @@
-import { openModal } from '@mantine/modals';
 import isElectron from 'is-electron';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import packageJson from '../../../package.json';
 
 import { openCreatePlaylistModal } from '/@/renderer/features/playlists/components/create-playlist-form';
-import { ServerList } from '/@/renderer/features/servers/components/server-list';
 import { openSettingsModal } from '/@/renderer/features/settings/utils/open-settings-modal';
 import { openReleaseNotesModal } from '/@/renderer/release-notes-modal';
 import {
@@ -76,23 +74,6 @@ export const useNativeMenuSync = () => {
             ipc?.removeAllListeners('renderer-open-create-playlist');
         };
     }, [server]);
-
-    useEffect(() => {
-        if (!isElectron()) {
-            return undefined;
-        }
-
-        window.api.utils.rendererOpenManageServers(() => {
-            openModal({
-                children: <ServerList />,
-                title: t('page.manageServers.title'),
-            });
-        });
-
-        return () => {
-            ipc?.removeAllListeners('renderer-open-manage-servers');
-        };
-    }, [t]);
 
     useEffect(() => {
         if (!isElectron()) {

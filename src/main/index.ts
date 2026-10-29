@@ -599,7 +599,7 @@ const createTray = () => {
         });
     }
 
-    tray.setToolTip('Feishin');
+    tray.setToolTip('TesuPlayer');
     tray.setContextMenu(contextMenu);
 };
 
@@ -1190,6 +1190,9 @@ if (!singleInstance) {
                 'local-network',
                 'local-network-access',
                 'loopback-network',
+                // audio output list and switching for the web player
+                'media',
+                'speaker-selection',
             ]);
             session.defaultSession.setPermissionCheckHandler((_wc, permission) =>
                 ALLOWED_PERMISSIONS.has(permission),
@@ -1198,10 +1201,51 @@ if (!singleInstance) {
                 callback(ALLOWED_PERMISSIONS.has(permission)),
             );
 
+            // YouTube / Twitch media hosts: the player loads them with crossOrigin=anonymous
+            // so Web Audio can process them; these CDNs do not always send CORS headers.
+            const EXTERNAL_MEDIA_HOST = /(^|\.)(googlevideo\.com|ttvnw\.net|jtvnw\.net)$/i;
+
+            // The renderer is file://, so it sends "Origin: null"; Twitch answers that
+            // with 403 on its playlists. Present the requests as coming from the sites.
+            session.defaultSession.webRequest.onBeforeSendHeaders(
+                {
+                    urls: ['*://*.ttvnw.net/*', '*://*.jtvnw.net/*', '*://*.googlevideo.com/*'],
+                },
+                (details, callback) => {
+                    const site = details.url.includes('googlevideo.com')
+                        ? 'https://www.youtube.com'
+                        : 'https://www.twitch.tv';
+                    callback({
+                        requestHeaders: {
+                            ...details.requestHeaders,
+                            Origin: site,
+                            Referer: `${site}/`,
+                        },
+                    });
+                },
+            );
+
             session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+                const responseHeaders = { ...details.responseHeaders };
+                let hostname = '';
+                try {
+                    hostname = new URL(details.url).hostname;
+                } catch {
+                    // ignore
+                }
+                if (EXTERNAL_MEDIA_HOST.test(hostname)) {
+                    for (const key of Object.keys(responseHeaders)) {
+                        if (key.toLowerCase().startsWith('access-control-allow-')) {
+                            delete responseHeaders[key];
+                        }
+                    }
+                    responseHeaders['Access-Control-Allow-Origin'] = ['*'];
+                    responseHeaders['Access-Control-Allow-Headers'] = ['*'];
+                }
+
                 callback({
                     responseHeaders: {
-                        ...details.responseHeaders,
+                        ...responseHeaders,
                         'Content-Security-Policy': [
                             "script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' https://umami.jeffvli.org; style-src 'self' 'unsafe-inline'; media-src 'self' http: https: data: blob:; img-src 'self' http: https: data: blob:; connect-src 'self' http: https: ws: wss:; default-src 'self';",
                         ],

@@ -1654,5 +1654,62 @@
                 "z": "Z"
             }
         }
+    },
+    "streams": {
+        "desktopOnly": "YouTube and Twitch playback is only available in the desktop app",
+        "resolveFailed": "Could not open the stream",
+        "ytdlpFound": "yt-dlp {{version}} is ready",
+        "ytdlpMissing": "Preparing yt-dlp for YouTube and Twitch...",
+        "ytdlpDownload": "Retry",
+        "ytdlpUpdate": "Update yt-dlp",
+        "download": "Download",
+        "downloadStarted": "Downloading audio...",
+        "downloadDone": "Added to the library",
+        "downloadFailed": "Download failed",
+        "searchPlaceholder": "Search YouTube and Twitch, or paste a link",
+        "checking": "checking...",
+        "live": "live",
+        "offline": "offline",
+        "channelUnknown": "no such channel",
+        "favorites": "Favourites",
+        "favoritesEmpty": "Press ☆ on a channel or a video. Favourites are saved to Radio stations and sync to your other devices.",
+        "saved": "\"{{name}}\" added to favourites (Radio stations)"
+    },
+    "library": {
+        "title": "My music",
+        "folders": "Music folders",
+        "scanning": "Scanning...",
+        "songCount": "{{count}} tracks in the library",
+        "noFolders": "No folders yet - add the folder with your music",
+        "addFolder": "Add folder",
+        "rescan": "Rescan",
+        "openDownloads": "Open downloads folder",
+        "downloadsHint": "Tracks downloaded from YouTube are saved to {{dir}} and appear in the library",
+        "remoteTitle": "Access from other devices",
+        "remoteHint": "Turn this on to listen to this computer's music from your phone or another computer. Playlists, favourites and play counts stay in sync because they live here.",
+        "remoteEnable": "Allow connections",
+        "username": "Username",
+        "password": "Password",
+        "port": "Port",
+        "remoteSaved": "Saved",
+        "addresses": "Connect to:",
+        "internetHint": "Outside your home network: forward TCP port {{port}} on the router, or use Tailscale / ZeroTier and connect by their address.",
+        "sourceTitle": "Listen from another computer",
+        "sourceLocal": "Now playing music from this computer.",
+        "sourceRemote": "Now playing music from {{url}}.",
+        "address": "Address",
+        "connect": "Connect",
+        "connected": "Connected",
+        "connectFailed": "Could not connect",
+        "useThisComputer": "Back to this computer"
+    },
+    "devices": {
+        "title": "Where it's playing",
+        "empty": "No other devices are connected. Turn on \"Access from other devices\" in Settings > My music and open TesuPlayer on your phone.",
+        "playing": "Playing",
+        "paused": "Paused",
+        "idle": "Idle",
+        "nothing": "Nothing is playing",
+        "playHere": "Play here"
     }
 }

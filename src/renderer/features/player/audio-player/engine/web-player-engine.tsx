@@ -6,6 +6,7 @@ import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'r
 import { AudioPlayer, PlayerOnProgressProps } from '/@/renderer/features/player/audio-player/types';
 import { convertToLogVolume } from '/@/renderer/features/player/audio-player/utils/player-utils';
 import { logger } from '/@/renderer/utils/logger';
+import { toast } from '/@/shared/components/toast/toast';
 import { PlayerStatus } from '/@/shared/types/types';
 
 export interface WebPlayerEngineHandle extends AudioPlayer {
@@ -93,7 +94,10 @@ export const WebPlayerEngine = (props: WebPlayerEngineProps) => {
 
         const loadReactPlayer = async () => {
             try {
-                const module = await import('react-player');
+                const [module, hls] = await Promise.all([import('react-player'), import('hls.js')]);
+                // react-player picks up a global Hls instead of loading it from a CDN;
+                // used for HLS streams (Twitch, YouTube live)
+                (window as any).Hls ??= hls.default;
                 if (isMounted) {
                     setReactPlayerComponent(() => module.default);
                     setIsLoading(false);
@@ -200,9 +204,27 @@ export const WebPlayerEngine = (props: WebPlayerEngineProps) => {
         onErrorPause: () => void,
         networkRetryCountRef: React.RefObject<number>,
     ) => {
-        return ({ target }: ErrorEvent) => {
+        return (
+            event: ErrorEvent | string,
+            data?: { details?: string; fatal?: boolean; type?: string },
+        ) => {
             const { current: player } = playerRef;
 
+            // hls.js (Twitch, YouTube live) reports (eventName, data) instead of a media error
+            if (typeof event === 'string') {
+                if (data?.fatal) {
+                    logger.error('HLS stream error', { details: data.details, type: data.type });
+                    toast.error({
+                        message: `${data.type}: ${data.details}`,
+                        title: 'Stream error',
+                    });
+                    pauseBothPlayers();
+                    onErrorPause?.();
+                }
+                return;
+            }
+
+            const { target } = event;
             if (!player || !(target instanceof Audio)) {
                 return;
             }

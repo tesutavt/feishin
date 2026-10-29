@@ -1,6 +1,4 @@
 import i18n from '/@/i18n/i18n';
-import { JellyfinController } from '/@/renderer/api/jellyfin/jellyfin-controller';
-import { NavidromeController } from '/@/renderer/api/navidrome/navidrome-controller';
 import { SubsonicController } from '/@/renderer/api/subsonic/subsonic-controller';
 import { mergeMusicFolderId } from '/@/renderer/api/utils-music-folder';
 import { getServerById, useAuthStore, useSettingsStore } from '/@/renderer/store';
@@ -20,9 +18,10 @@ type ApiController = {
     subsonic: InternalControllerEndpoint;
 };
 
+// TesuPlayer has no external servers: the built-in local library speaks Subsonic
 const endpoints: ApiController = {
-    jellyfin: JellyfinController,
-    navidrome: NavidromeController,
+    jellyfin: SubsonicController,
+    navidrome: SubsonicController,
     subsonic: SubsonicController,
 };
 
