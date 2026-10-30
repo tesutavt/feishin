@@ -21,6 +21,7 @@ import com.tesuta.tesuplayer.data.Spotify
 import com.tesuta.tesuplayer.data.Source
 import com.tesuta.tesuplayer.data.StarType
 import com.tesuta.tesuplayer.data.Starred
+import com.tesuta.tesuplayer.data.S
 import com.tesuta.tesuplayer.data.Streams
 import com.tesuta.tesuplayer.data.Track
 import com.tesuta.tesuplayer.data.UiPart
@@ -83,6 +84,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         player.warmUp()
         startHeartbeat()
         watchScrobbles()
+        watchTrackChanges()
         watchAutoDownload()
     }
 
@@ -144,7 +146,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return usable.map { t -> saved[t.id]?.copy(starred = t.starred, rating = t.rating) ?: t }
     }
 
+    /** "Подтверждать изменение очереди": the replace that waits for a yes */
+    val confirmQueue = MutableStateFlow<(() -> Unit)?>(null)
+
     fun play(tracks: List<Track>, start: Int = 0, shuffle: Boolean = false) {
+        val s = player.state.value
+        if (S.confirmQueueChanges && s.queue.size > 1 && confirmQueue.value == null) {
+            confirmQueue.value = { confirmQueue.value = null; playNow(tracks, start, shuffle) }
+            return
+        }
+        playNow(tracks, start, shuffle)
+    }
+
+    /** "Поведение кнопки «Воспроизвести»" for album / playlist headers */
+    fun playButton(tracks: List<Track>) = when (S.playButtonBehavior) {
+        "next" -> playNext(tracks)
+        "last" -> enqueue(tracks)
+        else -> play(tracks)
+    }
+
+    private fun playNow(tracks: List<Track>, start: Int, shuffle: Boolean) {
         val target = tracks.getOrNull(start)
         val list = local(tracks)
         if (list.isEmpty()) {
@@ -157,6 +178,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun playNext(tracks: List<Track>) { player.playNext(local(tracks)); toast("Сыграет следующим") }
     fun enqueue(tracks: List<Track>) { player.enqueue(local(tracks)); toast("Добавлено в очередь") }
 
+    /** Long press on an album / artist: the same play actions on all its songs */
+    fun tracksOf(kind: String, id: String, then: (List<Track>) -> Unit) = viewModelScope.launch {
+        runCatching { if (kind == "artist") apiFor(id).artistTracks(id) else albumTracks(id) }
+            .onSuccess { if (it.isEmpty()) toast("Треков нет") else then(it) }.onFailure { toast("Не получилось: ${it.message}") }
+    }
+
     /** Similar songs: the computer, the phone library or YouTube Mix */
     suspend fun similar(track: Track): List<Track> = when {
         track.source == Source.YOUTUBE -> Streams.mix(track)
@@ -167,12 +194,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** "Радио по треку" like the desktop context menu */
     fun trackRadio(track: Track) = viewModelScope.launch {
         toast("Подбираю похожие…")
-        runCatching { similar(track) }.onSuccess { more -> player.play(local(listOf(track) + more)) }
+        runCatching { similar(track).take(S.artistRadioCount) }.onSuccess { more -> player.play(local(listOf(track) + more)) }
             .onFailure { toast("Не получилось: ${it.message}") }
     }
 
     fun artistRadio(artistId: String) = viewModelScope.launch {
-        runCatching { apiFor(artistId).artistTracks(artistId).shuffled().take(100) }
+        runCatching { apiFor(artistId).artistTracks(artistId).shuffled().take(S.artistRadioCount) }
             .onSuccess { play(it) }.onFailure { toast("Не получилось: ${it.message}") }
     }
 
@@ -337,8 +364,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (todo.isEmpty()) return@launch
         toast("Отправляю на компьютер: ${todo.size}")
         var failed = 0
-        for (t in todo) runCatching { api.upload(getApplication(), t) }.onFailure { failed++ }
-        toast(if (failed == 0) "Отправлено на компьютер: ${todo.size}" else "Не удалось отправить: $failed из ${todo.size}")
+        var already = 0
+        for (t in todo) runCatching { api.upload(getApplication(), t) }
+            .onSuccess { sent -> if (!sent) already++ }
+            .onFailure { failed++ }
+        val sent = todo.size - failed - already
+        toast(buildString {
+            append("Отправлено на компьютер: $sent")
+            if (already > 0) append(", уже были там: $already")
+            if (failed > 0) append(", не удалось: $failed")
+        })
     }
 
     // ---------------------------------------------------------------- look
@@ -358,6 +393,66 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         prefs.theme = theme.name
         prefs.customTheme = custom
         Palette.apply(theme.name, custom)
+        themeId.value = theme.name
+    }
+
+    /** the chosen theme: a preset name, "desktop:<id>" or "file:<name>" */
+    val themeId = MutableStateFlow(prefs.theme ?: AppTheme.MACCHIATO.name)
+    val importedThemes = MutableStateFlow(prefs.importedThemes)
+
+    fun setThemeId(id: String) {
+        prefs.theme = id
+        Palette.apply(id, prefs.customTheme)
+        themeId.value = id
+    }
+
+    /** The same .json theme file the desktop app reads from its Themes folder */
+    fun importTheme(fileName: String, json: String) {
+        val name = fileName.substringAfterLast('/').removeSuffix(".json").ifBlank { "theme" }
+        if (DesktopThemes.fromFile(name, json) == null) {
+            toast("Это не файл темы TesuPlayer: нужен JSON с \"colors\" (background, primary...)")
+            return
+        }
+        prefs.importedThemes = prefs.importedThemes + (name to json)
+        Palette.imported = prefs.importedThemes
+        importedThemes.value = prefs.importedThemes
+        setThemeId("file:$name")
+        toast("Тема «${DesktopThemes.label(name)}» добавлена")
+    }
+
+    fun removeTheme(name: String) {
+        prefs.importedThemes = prefs.importedThemes - name
+        Palette.imported = prefs.importedThemes
+        importedThemes.value = prefs.importedThemes
+        if (themeId.value == "file:$name") setTheme(AppTheme.MACCHIATO)
+    }
+
+    /** General → Theme switches changed */
+    fun refreshTheme() = Palette.reapply()
+
+    fun exportSettings(): String = prefs.exportAll()
+
+    fun importSettings(json: String) {
+        runCatching { prefs.importAll(json) }
+            .onSuccess { n ->
+                Palette.imported = prefs.importedThemes
+                Palette.apply(prefs.theme, prefs.customTheme)
+                themeId.value = prefs.theme ?: AppTheme.MACCHIATO.name
+                importedThemes.value = prefs.importedThemes
+                hidden.value = prefs.hidden
+                toast("Настройки загружены: $n. Часть применится после перезапуска")
+            }
+            .onFailure { toast("Это не файл настроек TesuPlayer") }
+    }
+
+    fun clearCache() {
+        prefs.clearCache()
+        val loader = coil.Coil.imageLoader(getApplication())
+        loader.memoryCache?.clear()
+        loader.diskCache?.clear()
+        phone.invalidate()
+        changed()
+        toast("Кэш очищен")
     }
 
     // ---------------------------------------------------------------- radio stations
@@ -375,8 +470,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------------------------------------------------------- lyrics
 
     suspend fun lyrics(track: Track): List<LyricLine>? {
-        if (!prefs.lyricsEnabled) return null
-        val text = runCatching { apiFor(track.id).embeddedLyrics(track) }.getOrNull() ?: Lyrics.lrclib(track)
+        val local = suspend { runCatching { apiFor(track.id).embeddedLyrics(track) }.getOrNull() }
+        val internet = suspend {
+            if (!prefs.lyricsEnabled) null
+            else S.lyricProviders.let { p ->
+                (if ("lrclib" in p) Lyrics.lrclib(track) else null)
+                    ?: (if ("netease" in p) Lyrics.netease(track, S.neteaseTranslation) else null)
+            }
+        }
+        // "Предпочитать локальные тексты песен": tags first, otherwise the internet first
+        val text = if (S.preferLocalLyrics) local() ?: internet() else internet() ?: local()
         return text?.let(Lyrics::parse)?.takeIf { it.isNotEmpty() }
     }
 
@@ -385,11 +488,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun isPcTrack(id: String) = !id.contains(':')
 
     /** play counts / "recently played", like the desktop scrobbling setting */
+    /** Counts a play like the desktop: after N seconds or N % of the song, whichever comes first */
     private fun watchScrobbles() = viewModelScope.launch {
         var last: String? = null
         player.state.collect { s ->
             val id = s.mediaId ?: return@collect
             if (!s.isPlaying || id == last) return@collect
+            val byTime = prefs.scrobbleSeconds * 1000L
+            val byShare = if (s.duration > 0) s.duration * prefs.scrobblePercent / 100 else Long.MAX_VALUE
+            val needed = if (S.scrobbleMode == "all") maxOf(byTime, minOf(byShare, s.duration)) else minOf(byTime, byShare)
+            if (s.position < needed) return@collect
             last = id
             if (!prefs.scrobble) return@collect
             runCatching {
@@ -397,6 +505,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     id.startsWith("local:") -> phone.scrobble(id)
                     isPcTrack(id) -> pc?.scrobble(id)
                 }
+            }
+        }
+    }
+
+    /** Song notifications and the queue autosave on the computer, both on a track change */
+    private fun watchTrackChanges() = viewModelScope.launch {
+        var last: String? = null
+        var changes = 0
+        player.state.collect { s ->
+            val id = s.mediaId ?: return@collect
+            if (id == last) return@collect
+            last = id
+            if (S.notifySongs && s.isPlaying && s.title.isNotBlank()) toast("♪ ${s.title}" + if (s.artist.isNotBlank()) " — ${s.artist}" else "")
+            val api = pc ?: return@collect
+            if (S.autosave && ++changes % S.autosaveCount == 0) {
+                val ids = s.queue.map { it.id }.filter(::isPcTrack)
+                if (ids.isNotEmpty()) runCatching { api.savePlayQueue(ids, id.takeIf(::isPcTrack), s.position) }
             }
         }
     }

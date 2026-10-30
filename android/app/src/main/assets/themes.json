@@ -1,0 +1,578 @@
+[
+ {
+  "colors": {
+   "background": "rgb(31, 36, 48)",
+   "background-alternate": "rgb(23, 27, 36)",
+   "surface": "rgb(39, 46, 57)",
+   "surface-foreground": "rgb(203, 204, 198)",
+   "foreground": "rgb(203, 204, 198)",
+   "foreground-muted": "rgb(170, 173, 166)",
+   "primary": "rgb(115, 192, 203)",
+   "state-error": "rgb(255, 51, 51)",
+   "state-info": "rgb(115, 192, 203)",
+   "state-success": "rgb(186, 230, 126)",
+   "state-warning": "rgb(255, 204, 102)"
+  },
+  "id": "ayuDark",
+  "label": "Ayu Dark",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(253, 253, 253)",
+   "background-alternate": "rgb(250, 250, 250)",
+   "surface": "rgb(255, 255, 255)",
+   "surface-foreground": "rgb(57, 58, 52)",
+   "foreground": "rgb(57, 58, 52)",
+   "foreground-muted": "rgb(128, 128, 128)",
+   "primary": "rgb(86, 156, 214)",
+   "state-error": "rgb(255, 51, 51)",
+   "state-info": "rgb(55, 118, 171)",
+   "state-success": "rgb(86, 171, 47)",
+   "state-warning": "rgb(255, 153, 0)"
+  },
+  "id": "ayuLight",
+  "label": "Ayu Light",
+  "mode": "light"
+ },
+ {
+  "colors": {
+   "background": "rgb(239, 241, 245)",
+   "background-alternate": "rgb(230, 233, 239)",
+   "surface": "rgb(220, 224, 232)",
+   "surface-foreground": "rgb(76, 79, 105)",
+   "foreground": "rgb(76, 79, 105)",
+   "foreground-muted": "rgb(108, 111, 133)",
+   "primary": "rgb(30, 102, 245)",
+   "state-error": "rgb(210, 15, 57)",
+   "state-info": "rgb(30, 102, 245)",
+   "state-success": "rgb(64, 160, 43)",
+   "state-warning": "rgb(223, 142, 29)"
+  },
+  "id": "catppuccinLatte",
+  "label": "Catppuccin Latte",
+  "mode": "light"
+ },
+ {
+  "colors": {
+   "background": "rgb(24, 24, 37)",
+   "background-alternate": "rgb(17, 17, 27)",
+   "surface": "rgb(30, 30, 46)",
+   "surface-foreground": "rgb(205, 214, 244)",
+   "foreground": "rgb(205, 214, 244)",
+   "foreground-muted": "rgb(186, 194, 222)",
+   "primary": "rgb(137, 180, 250)",
+   "state-error": "rgb(243, 139, 168)",
+   "state-info": "rgb(137, 180, 250)",
+   "state-success": "rgb(166, 227, 161)",
+   "state-warning": "rgb(250, 179, 135)"
+  },
+  "id": "catppuccinMocha",
+  "label": "Catppuccin Mocha",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(12, 12, 12)",
+   "background-alternate": "rgb(8, 8, 8)",
+   "surface": "rgb(20, 20, 20)",
+   "surface-foreground": "rgb(215, 215, 215)",
+   "foreground": "rgb(225, 225, 225)",
+   "foreground-muted": "rgb(150, 150, 150)",
+   "primary": "rgb(53, 116, 252)",
+   "state-error": "rgb(204, 50, 50)",
+   "state-info": "rgb(53, 116, 252)",
+   "state-success": "rgb(50, 204, 50)",
+   "state-warning": "rgb(255, 120, 120)"
+  },
+  "id": "defaultDark",
+  "label": "Default Dark",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(235, 235, 235)",
+   "background-alternate": "rgb(240, 240, 240)",
+   "surface": "rgb(225, 225, 225)",
+   "surface-foreground": "rgb(0, 0, 0)",
+   "foreground": "rgb(25, 25, 25)",
+   "foreground-muted": "rgb(80, 80, 80)",
+   "primary": "rgb(0, 122, 255)",
+   "state-error": "rgb(255, 59, 48)",
+   "state-info": "rgb(0, 122, 255)",
+   "state-success": "rgb(48, 209, 88)",
+   "state-warning": "rgb(255, 214, 0)"
+  },
+  "id": "defaultLight",
+  "label": "Default Light",
+  "mode": "light"
+ },
+ {
+  "colors": {
+   "background": "rgb(40, 42, 54)",
+   "background-alternate": "rgb(30, 31, 41)",
+   "surface": "rgb(68, 71, 90)",
+   "surface-foreground": "rgb(248, 248, 242)",
+   "foreground": "rgb(248, 248, 242)",
+   "foreground-muted": "rgb(189, 147, 249)",
+   "primary": "rgb(189, 147, 249)",
+   "state-error": "rgb(255, 85, 85)",
+   "state-info": "rgb(139, 233, 253)",
+   "state-success": "rgb(80, 250, 123)",
+   "state-warning": "rgb(255, 184, 108)"
+  },
+  "id": "dracula",
+  "label": "Dracula",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(35, 42, 46)",
+   "background-alternate": "rgb(35, 42, 46)",
+   "surface": "rgb(52, 63, 56)",
+   "surface-foreground": "rgb(211, 198, 170)",
+   "foreground": "rgb(211, 198, 170)",
+   "foreground-muted": "rgb(211, 198, 170)",
+   "primary": "rgb(167, 192, 128)",
+   "state-error": "rgb(230, 126, 128)",
+   "state-info": "rgb(127, 187, 179)",
+   "state-success": "rgb(167, 192, 128)",
+   "state-warning": "rgb(219, 188, 127)"
+  },
+  "id": "everforestDark",
+  "label": "Everforest Dark",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(253, 246, 227)",
+   "background-alternate": "rgb(237, 230, 211)",
+   "surface": "rgb(237, 230, 211)",
+   "surface-foreground": "rgb(92, 103, 76)",
+   "foreground": "rgb(92, 103, 76)",
+   "foreground-muted": "rgb(131, 145, 112)",
+   "primary": "rgb(141, 165, 96)",
+   "state-error": "rgb(241, 103, 98)",
+   "state-info": "rgb(59, 145, 152)",
+   "state-success": "rgb(141, 165, 96)",
+   "state-warning": "rgb(223, 163, 59)"
+  },
+  "id": "everforestLight",
+  "label": "Everforest Light",
+  "mode": "light"
+ },
+ {
+  "colors": {
+   "background": "rgb(13, 17, 23)",
+   "background-alternate": "rgb(22, 27, 34)",
+   "surface": "rgb(46, 57, 72)",
+   "surface-foreground": "rgb(201, 209, 217)",
+   "foreground": "rgb(201, 209, 217)",
+   "foreground-muted": "rgb(139, 148, 158)",
+   "primary": "rgb(88, 166, 255)",
+   "state-error": "rgb(248, 81, 73)",
+   "state-info": "rgb(88, 166, 255)",
+   "state-success": "rgb(56, 211, 145)",
+   "state-warning": "rgb(251, 188, 5)"
+  },
+  "id": "githubDark",
+  "label": "Github Dark",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(255, 255, 255)",
+   "background-alternate": "rgb(246, 248, 250)",
+   "surface": "rgb(250, 252, 254)",
+   "surface-foreground": "rgb(31, 35, 40)",
+   "foreground": "rgb(31, 35, 40)",
+   "foreground-muted": "rgb(101, 109, 118)",
+   "primary": "rgb(9, 105, 218)",
+   "state-error": "rgb(212, 5, 17)",
+   "state-info": "rgb(9, 105, 218)",
+   "state-success": "rgb(26, 127, 100)",
+   "state-warning": "rgb(191, 136, 0)"
+  },
+  "id": "githubLight",
+  "label": "Github Light",
+  "mode": "light"
+ },
+ {
+  "colors": {
+   "background": "rgb(2, 2, 3)",
+   "background-alternate": "rgb(0, 0, 0)",
+   "surface": "rgb(4, 4, 5)",
+   "surface-foreground": "rgb(215, 215, 215)",
+   "foreground": "rgb(225, 225, 225)",
+   "foreground-muted": "rgb(150, 150, 150)",
+   "primary": "rgb(53, 116, 252)",
+   "state-error": "rgb(204, 50, 50)",
+   "state-info": "rgb(53, 116, 252)",
+   "state-success": "rgb(50, 204, 50)",
+   "state-warning": "rgb(255, 120, 120)"
+  },
+  "id": "glassyDark",
+  "label": "Glassy Dark",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(40, 40, 40)",
+   "background-alternate": "rgb(29, 32, 33)",
+   "surface": "rgb(50, 48, 47)",
+   "surface-foreground": "rgb(235, 219, 178)",
+   "foreground": "rgb(235, 219, 178)",
+   "foreground-muted": "rgb(189, 174, 147)",
+   "primary": "rgb(250, 189, 47)",
+   "state-error": "rgb(251, 73, 52)",
+   "state-info": "rgb(131, 165, 152)",
+   "state-success": "rgb(184, 187, 38)",
+   "state-warning": "rgb(250, 189, 47)"
+  },
+  "id": "gruvboxDark",
+  "label": "Gruvbox Dark",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(251, 241, 199)",
+   "background-alternate": "rgb(242, 229, 188)",
+   "surface": "rgb(235, 219, 178)",
+   "surface-foreground": "rgb(60, 56, 54)",
+   "foreground": "rgb(60, 56, 54)",
+   "foreground-muted": "rgb(124, 111, 100)",
+   "primary": "rgb(214, 93, 14)",
+   "state-error": "rgb(204, 36, 29)",
+   "state-info": "rgb(7, 102, 120)",
+   "state-success": "rgb(121, 116, 14)",
+   "state-warning": "rgb(214, 93, 14)"
+  },
+  "id": "gruvboxLight",
+  "label": "Gruvbox Light",
+  "mode": "light"
+ },
+ {
+  "colors": {
+   "background": "rgb(0, 0, 0)",
+   "background-alternate": "rgb(0, 0, 0)",
+   "surface": "rgb(20, 20, 20)",
+   "surface-foreground": "rgb(255, 255, 255)",
+   "foreground": "rgb(255, 255, 255)",
+   "foreground-muted": "rgb(200, 200, 200)",
+   "primary": "rgb(0, 191, 255)",
+   "state-error": "rgb(255, 0, 0)",
+   "state-info": "rgb(0, 191, 255)",
+   "state-success": "rgb(0, 255, 0)",
+   "state-warning": "rgb(255, 255, 0)"
+  },
+  "id": "highContrastDark",
+  "label": "High Contrast Dark",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(255, 255, 255)",
+   "background-alternate": "rgb(255, 255, 255)",
+   "surface": "rgb(240, 240, 240)",
+   "surface-foreground": "rgb(0, 0, 0)",
+   "foreground": "rgb(0, 0, 0)",
+   "foreground-muted": "rgb(50, 50, 50)",
+   "primary": "rgb(0, 0, 255)",
+   "state-error": "rgb(255, 0, 0)",
+   "state-info": "rgb(0, 0, 255)",
+   "state-success": "rgb(0, 128, 0)",
+   "state-warning": "rgb(255, 140, 0)"
+  },
+  "id": "highContrastLight",
+  "label": "High Contrast Light",
+  "mode": "light"
+ },
+ {
+  "colors": {
+   "background": "rgb(33, 33, 33)",
+   "background-alternate": "rgb(18, 18, 18)",
+   "surface": "rgb(48, 48, 48)",
+   "surface-foreground": "rgb(255, 255, 255)",
+   "foreground": "rgb(255, 255, 255)",
+   "foreground-muted": "rgb(189, 189, 189)",
+   "primary": "rgb(33, 150, 243)",
+   "state-error": "rgb(244, 67, 54)",
+   "state-info": "rgb(33, 150, 243)",
+   "state-success": "rgb(76, 175, 80)",
+   "state-warning": "rgb(255, 152, 0)"
+  },
+  "id": "materialDark",
+  "label": "Material Dark",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(250, 250, 250)",
+   "background-alternate": "rgb(255, 255, 255)",
+   "surface": "rgb(245, 245, 245)",
+   "surface-foreground": "rgb(33, 33, 33)",
+   "foreground": "rgb(33, 33, 33)",
+   "foreground-muted": "rgb(117, 117, 117)",
+   "primary": "rgb(33, 150, 243)",
+   "state-error": "rgb(244, 67, 54)",
+   "state-info": "rgb(33, 150, 243)",
+   "state-success": "rgb(76, 175, 80)",
+   "state-warning": "rgb(255, 152, 0)"
+  },
+  "id": "materialLight",
+  "label": "Material Light",
+  "mode": "light"
+ },
+ {
+  "colors": {
+   "background": "rgb(39, 40, 34)",
+   "background-alternate": "rgb(30, 31, 28)",
+   "surface": "rgb(50, 51, 45)",
+   "surface-foreground": "rgb(248, 248, 242)",
+   "foreground": "rgb(248, 248, 242)",
+   "foreground-muted": "rgb(117, 113, 94)",
+   "primary": "rgb(174, 129, 255)",
+   "state-error": "rgb(249, 38, 114)",
+   "state-info": "rgb(102, 217, 239)",
+   "state-success": "rgb(166, 226, 46)",
+   "state-warning": "rgb(253, 151, 31)"
+  },
+  "id": "monokai",
+  "label": "Monokai",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(1, 22, 39)",
+   "background-alternate": "rgb(0, 16, 28)",
+   "surface": "rgb(11, 41, 66)",
+   "surface-foreground": "rgb(214, 222, 235)",
+   "foreground": "rgb(214, 222, 235)",
+   "foreground-muted": "rgb(171, 178, 191)",
+   "primary": "rgb(130, 170, 255)",
+   "state-error": "rgb(255, 123, 172)",
+   "state-info": "rgb(130, 170, 255)",
+   "state-success": "rgb(173, 219, 103)",
+   "state-warning": "rgb(255, 184, 108)"
+  },
+  "id": "nightOwl",
+  "label": "Night Owl",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(46, 52, 64)",
+   "background-alternate": "rgb(37, 41, 54)",
+   "surface": "rgb(59, 66, 82)",
+   "surface-foreground": "rgb(236, 239, 244)",
+   "foreground": "rgb(236, 239, 244)",
+   "foreground-muted": "rgb(216, 222, 233)",
+   "primary": "rgb(136, 192, 208)",
+   "state-error": "rgb(191, 97, 106)",
+   "state-info": "rgb(136, 192, 208)",
+   "state-success": "rgb(163, 190, 140)",
+   "state-warning": "rgb(235, 203, 139)"
+  },
+  "id": "nord",
+  "label": "Nord",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(40, 44, 52)",
+   "background-alternate": "rgb(30, 33, 40)",
+   "surface": "rgb(55, 59, 70)",
+   "surface-foreground": "rgb(171, 178, 191)",
+   "foreground": "rgb(171, 178, 191)",
+   "foreground-muted": "rgb(152, 161, 178)",
+   "primary": "rgb(97, 175, 239)",
+   "state-error": "rgb(224, 108, 117)",
+   "state-info": "rgb(97, 175, 239)",
+   "state-success": "rgb(152, 195, 121)",
+   "state-warning": "rgb(229, 192, 123)"
+  },
+  "id": "oneDark",
+  "label": "One Dark",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "#191724",
+   "background-alternate": "#191724",
+   "surface": "#1f1d2e",
+   "surface-foreground": "#908caa",
+   "foreground": "#e0def4",
+   "foreground-muted": "#6e6a86",
+   "primary": "#ebbcba",
+   "state-error": "#eb6f92",
+   "state-info": "#9ccfd8",
+   "state-success": "#31748f",
+   "state-warning": "#f6c177"
+  },
+  "id": "rosePine",
+  "label": "Rose Pine",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "#faf4ed",
+   "background-alternate": "#faf4ed",
+   "surface": "#fffaf3",
+   "surface-foreground": "#797593",
+   "foreground": "#575279",
+   "foreground-muted": "#9893a5",
+   "primary": "#d7827e",
+   "state-error": "#b4637a",
+   "state-info": "#56949f",
+   "state-success": "#286983",
+   "state-warning": "#ea9d34"
+  },
+  "id": "rosePineDawn",
+  "label": "Rose Pine Dawn",
+  "mode": "light"
+ },
+ {
+  "colors": {
+   "background": "#232136",
+   "background-alternate": "#232136",
+   "surface": "#191724",
+   "surface-foreground": "#908caa",
+   "foreground": "#e0def4",
+   "foreground-muted": "#6e6a86",
+   "primary": "#ea9a97",
+   "state-error": "#eb6f92",
+   "state-info": "#9ccfd8",
+   "state-success": "#3e8fb0",
+   "state-warning": "#f6c177"
+  },
+  "id": "rosePineMoon",
+  "label": "Rose Pine Moon",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(45, 43, 85)",
+   "background-alternate": "rgb(37, 35, 69)",
+   "surface": "rgb(58, 56, 102)",
+   "surface-foreground": "rgb(255, 255, 255)",
+   "foreground": "rgb(255, 255, 255)",
+   "foreground-muted": "rgb(255, 255, 255)",
+   "primary": "rgb(167, 129, 255)",
+   "state-error": "rgb(255, 99, 99)",
+   "state-info": "rgb(130, 170, 255)",
+   "state-success": "rgb(10, 255, 157)",
+   "state-warning": "rgb(255, 184, 108)"
+  },
+  "id": "shadesOfPurple",
+  "label": "Shades Of Purple",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(0, 43, 54)",
+   "background-alternate": "rgb(7, 54, 66)",
+   "surface": "rgb(14, 65, 78)",
+   "surface-foreground": "rgb(131, 148, 150)",
+   "foreground": "rgb(131, 148, 150)",
+   "foreground-muted": "rgb(88, 110, 117)",
+   "primary": "rgb(38, 139, 210)",
+   "state-error": "rgb(220, 50, 47)",
+   "state-info": "rgb(38, 139, 210)",
+   "state-success": "rgb(133, 153, 0)",
+   "state-warning": "rgb(181, 137, 0)"
+  },
+  "id": "solarizedDark",
+  "label": "Solarized Dark",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(253, 246, 227)",
+   "background-alternate": "rgb(238, 232, 213)",
+   "surface": "rgb(247, 240, 220)",
+   "surface-foreground": "rgb(0, 43, 54)",
+   "foreground": "rgb(101, 123, 131)",
+   "foreground-muted": "rgb(147, 161, 161)",
+   "primary": "rgb(38, 139, 210)",
+   "state-error": "rgb(220, 50, 47)",
+   "state-info": "rgb(38, 139, 210)",
+   "state-success": "rgb(133, 153, 0)",
+   "state-warning": "rgb(181, 137, 0)"
+  },
+  "id": "solarizedLight",
+  "label": "Solarized Light",
+  "mode": "light"
+ },
+ {
+  "colors": {
+   "background": "rgb(26, 27, 38)",
+   "background-alternate": "rgb(20, 21, 30)",
+   "surface": "rgb(35, 36, 51)",
+   "surface-foreground": "rgb(192, 202, 245)",
+   "foreground": "rgb(192, 202, 245)",
+   "foreground-muted": "rgb(169, 177, 214)",
+   "primary": "rgb(125, 207, 255)",
+   "state-error": "rgb(247, 118, 142)",
+   "state-info": "rgb(125, 207, 255)",
+   "state-success": "rgb(158, 206, 106)",
+   "state-warning": "rgb(255, 158, 100)"
+  },
+  "id": "tokyoNight",
+  "label": "Tokyo Night",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(30, 30, 30)",
+   "background-alternate": "rgb(24, 24, 24)",
+   "surface": "rgb(37, 37, 38)",
+   "surface-foreground": "rgb(212, 212, 212)",
+   "foreground": "rgb(212, 212, 212)",
+   "foreground-muted": "rgb(170, 170, 170)",
+   "primary": "rgb(0, 122, 204)",
+   "state-error": "rgb(244, 63, 94)",
+   "state-info": "rgb(0, 122, 204)",
+   "state-success": "rgb(89, 185, 89)",
+   "state-warning": "rgb(255, 184, 108)"
+  },
+  "id": "vscodeDarkPlus",
+  "label": "Vscode Dark Plus",
+  "mode": "dark"
+ },
+ {
+  "colors": {
+   "background": "rgb(255, 255, 255)",
+   "background-alternate": "rgb(250, 250, 250)",
+   "surface": "rgb(243, 243, 243)",
+   "surface-foreground": "rgb(0, 0, 0)",
+   "foreground": "rgb(0, 0, 0)",
+   "foreground-muted": "rgb(113, 113, 113)",
+   "primary": "rgb(0, 122, 204)",
+   "state-error": "rgb(229, 20, 0)",
+   "state-info": "rgb(0, 122, 204)",
+   "state-success": "rgb(16, 124, 16)",
+   "state-warning": "rgb(191, 136, 0)"
+  },
+  "id": "vscodeLightPlus",
+  "label": "Vscode Light Plus",
+  "mode": "light"
+ },
+ {
+  "colors": {
+   "background": "#3f3f3f",
+   "background-alternate": "#313131",
+   "surface": "#636363",
+   "surface-foreground": "#95a4b2",
+   "foreground": "#dcdccc",
+   "foreground-muted": "#d9d9d9",
+   "primary": "#95a4b2",
+   "state-error": "#dca3a3",
+   "state-info": "#95a4b2",
+   "state-success": "#7f9f7f",
+   "state-warning": "#efdcbc"
+  },
+  "id": "zenburn",
+  "label": "Zenburn",
+  "mode": "dark"
+ }
+]

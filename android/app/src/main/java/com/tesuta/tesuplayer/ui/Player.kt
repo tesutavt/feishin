@@ -78,12 +78,23 @@ import coil.compose.AsyncImage
 import com.tesuta.tesuplayer.TesuApp
 import com.tesuta.tesuplayer.data.Source
 import com.tesuta.tesuplayer.data.UiPart
+import com.tesuta.tesuplayer.data.S
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
+import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import com.tesuta.tesuplayer.player.PlayerController
 import com.tesuta.tesuplayer.player.PlayerUi
 
 @Composable
 fun MiniPlayer(state: PlayerUi, player: PlayerController, showProgress: Boolean = true, onOpen: () -> Unit) {
-    Surface(color = Palette.mantle, modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
+    Surface(color = Palette.mantle, modifier = Modifier.fillMaxWidth().clickable(enabled = S.playerbarOpenDrawer, onClick = onOpen)) {
         Column {
             if (showProgress && state.duration > 0 && !state.isLive) {
                 LinearProgressIndicator(
@@ -111,6 +122,7 @@ fun MiniPlayer(state: PlayerUi, player: PlayerController, showProgress: Boolean 
                     }
                 }
                 IconButton(onClick = player::next, enabled = state.hasNext) { Icon(Icons.Default.SkipNext, "Next") }
+                if (!S.playerbarOpenDrawer) IconButton(onClick = onOpen) { Icon(Icons.Default.KeyboardArrowUp, "Открыть плеер") }
             }
         }
     }
@@ -128,6 +140,8 @@ fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, modifier: Modifier =
     var dragValue by remember { mutableFloatStateOf(0f) }
     var timerDialog by remember { mutableStateOf(false) }
     var speedDialog by remember { mutableStateOf(false) }
+    var swipe by remember { mutableFloatStateOf(0f) }
+    var heart by remember { mutableStateOf(false) }
     val track = state.track
     val libraryTrack = track != null && track.source == Source.SERVER && !track.id.startsWith("radio:")
     val hidden by vm.hidden.collectAsState()
@@ -166,11 +180,34 @@ fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, modifier: Modifier =
             Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
                 when (shown) {
                     PlayerTab.COVER -> Box(
-                        Modifier.fillMaxWidth(0.92f).aspectRatio(1f).clip(RoundedCornerShape(24.dp)).background(Palette.surface0),
+                        Modifier.fillMaxWidth(0.92f).aspectRatio(1f)
+                            .offset { IntOffset(swipe.roundToInt(), 0) }
+                            .clip(RoundedCornerShape(24.dp)).background(Palette.surface0)
+                            .pointerInput(state.mediaId) {
+                                detectHorizontalDragGestures(
+                                    onDragEnd = {
+                                        when {
+                                            swipe < -size.width / 4f && state.hasNext -> player.next()
+                                            swipe > size.width / 4f -> player.previous()
+                                        }
+                                        swipe = 0f
+                                    },
+                                    onDragCancel = { swipe = 0f },
+                                ) { _, dx -> swipe += dx }
+                            }
+                            .pointerInput(track?.id, starrable) {
+                                detectTapGestures(onDoubleTap = {
+                                    if (starrable && track != null) { vm.toggleStar(track); heart = true }
+                                })
+                            },
                         contentAlignment = Alignment.Center,
                     ) {
                         Cover(null, 120.dp)
                         AsyncImage(model = state.artwork, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                        if (heart) {
+                            LaunchedEffect(Unit) { delay(700); heart = false }
+                            Icon(Icons.Default.Favorite, null, tint = Palette.pink.copy(alpha = 0.9f), modifier = Modifier.size(96.dp))
+                        }
                         if (visualizer) {
                             VisualizerBars(audioSession, state.isPlaying,
                                 Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.3f).padding(horizontal = 12.dp))
@@ -191,14 +228,14 @@ fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, modifier: Modifier =
 
             // favourite, rating, playlist, timer, speed, info — the desktop player bar
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (starrable && track != null) {
+                if (starrable && track != null && S.showFavorites) {
                     IconButton(onClick = { vm.toggleStar(track) }) {
                         Icon(if (track.starred) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Избранное",
                             tint = if (track.starred) Palette.pink else Palette.subtext)
                     }
                 }
                 if (libraryTrack && track != null && UiPart.PLAYER_RATING !in hidden) {
-                    RatingBar(track.rating, 20) { vm.rate(track, it) }
+                    if (S.showRatings) RatingBar(track.rating, 20) { vm.rate(track, it) }
                     IconButton(onClick = { vm.addToPlaylist.value = listOf(track) }) {
                         Icon(Icons.AutoMirrored.Filled.PlaylistAdd, "В плейлист", tint = Palette.subtext)
                     }
@@ -251,22 +288,29 @@ fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, modifier: Modifier =
                 IconButton(onClick = player::toggleShuffle) {
                     Icon(Icons.Default.Shuffle, "Shuffle", tint = if (state.shuffle) Palette.mauve else Palette.subtext)
                 }
-                IconButton(onClick = player::previous, modifier = Modifier.size(56.dp)) {
-                    Icon(Icons.Default.SkipPrevious, "Previous", Modifier.size(36.dp))
+                val button = S.buttonSize.dp
+                if (S.showSkipButtons && !state.isLive) IconButton(onClick = { player.skipBy(-S.skipSeconds) }) {
+                    Icon(Icons.Default.Replay10, "Назад на ${S.skipSeconds} с", tint = Palette.subtext)
+                }
+                IconButton(onClick = player::previous, modifier = Modifier.size(button * 1.55f)) {
+                    Icon(Icons.Default.SkipPrevious, "Previous", Modifier.size(button))
                 }
                 Box(
-                    Modifier.size(72.dp).clip(CircleShape).background(Palette.accent).clickable(onClick = player::toggle),
+                    Modifier.size(button * 2).clip(CircleShape).background(Palette.accent).clickable(onClick = player::toggle),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (state.loading || state.isBuffering) {
-                        CircularProgressIndicator(color = Palette.mantle, modifier = Modifier.size(32.dp))
+                        CircularProgressIndicator(color = Palette.mantle, modifier = Modifier.size(button * 0.9f))
                     } else {
                         Icon(if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, "Play",
-                            tint = Palette.mantle, modifier = Modifier.size(40.dp))
+                            tint = Palette.mantle, modifier = Modifier.size(button * 1.1f))
                     }
                 }
-                IconButton(onClick = player::next, enabled = state.hasNext, modifier = Modifier.size(56.dp)) {
-                    Icon(Icons.Default.SkipNext, "Next", Modifier.size(36.dp))
+                IconButton(onClick = player::next, enabled = state.hasNext, modifier = Modifier.size(button * 1.55f)) {
+                    Icon(Icons.Default.SkipNext, "Next", Modifier.size(button))
+                }
+                if (S.showSkipButtons && !state.isLive) IconButton(onClick = { player.skipBy(S.skipSeconds) }) {
+                    Icon(Icons.Default.Forward10, "Вперёд на ${S.skipSeconds} с", tint = Palette.subtext)
                 }
                 IconButton(onClick = player::cycleRepeat) {
                     Icon(
@@ -302,7 +346,7 @@ private fun LyricsView(vm: AppViewModel, state: PlayerUi) {
                 return
             }
             val synced = lines.first().timeMs != null
-            val current = if (synced) lines.indexOfLast { (it.timeMs ?: 0) <= state.position + 300 } else -1
+            val current = if (synced) lines.indexOfLast { (it.timeMs ?: 0) <= state.position + 300 - vm.prefs.lyricsOffsetMs } else -1
             val listState = rememberLazyListState()
             LaunchedEffect(current) {
                 if (synced && current >= 0 && vm.prefs.lyricsFollow) listState.animateScrollToItem((current - 3).coerceAtLeast(0))

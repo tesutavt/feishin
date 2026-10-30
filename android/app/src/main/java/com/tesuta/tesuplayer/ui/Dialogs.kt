@@ -179,7 +179,9 @@ fun SpeedDialog(player: PlayerController, current: Float, onDismiss: () -> Unit)
         title = { Text("Скорость: ${"%.2f".format(speed)}×") },
         text = {
             Column {
-                Slider(value = speed, onValueChange = { speed = (it * 20).toInt() / 20f }, valueRange = 0.5f..2f)
+                // "Микротональные настройки высоты тона": 0.01× steps instead of 0.05×
+                val steps = if (com.tesuta.tesuplayer.data.S.microtonalPitch) 100 else 20
+                Slider(value = speed, onValueChange = { speed = Math.round(it * steps) / steps.toFloat() }, valueRange = 0.5f..2f)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     listOf(0.75f, 1f, 1.25f, 1.5f).forEach { s -> TextButton(onClick = { speed = s }) { Text("${s}×") } }
                 }

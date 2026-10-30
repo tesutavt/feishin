@@ -71,4 +71,38 @@ object Lyrics {
             best?.let(::pick)
         }.getOrNull()
     }
+
+    /** NetEase, like the desktop provider: search, then the lyric with an optional translation */
+    suspend fun netease(track: Track, translation: Boolean): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val search = "https://music.163.com/api/search/get".toHttpUrl().newBuilder()
+                .addQueryParameter("s", "${track.artist} ${track.title}".trim())
+                .addQueryParameter("type", "1").addQueryParameter("limit", "5").addQueryParameter("offset", "0").build()
+            val songs = (get(search)?.let { AppJson.parseToJsonElement(it) } as? JsonObject)
+                ?.get("result")?.let { it as? JsonObject }?.get("songs") as? JsonArray ?: return@runCatching null
+            val title = track.title.lowercase()
+            val song = songs.mapNotNull { it as? JsonObject }
+                .firstOrNull { it.str("name")?.lowercase()?.let { n -> n.contains(title) || title.contains(n) } == true }
+                ?: return@runCatching null
+            val id = song["id"]?.toString() ?: return@runCatching null
+            val lyric = "https://music.163.com/api/song/lyric".toHttpUrl().newBuilder()
+                .addQueryParameter("id", id).addQueryParameter("lv", "-1").addQueryParameter("kv", "-1").addQueryParameter("tv", "-1").build()
+            val o = get(lyric)?.let { AppJson.parseToJsonElement(it) } as? JsonObject ?: return@runCatching null
+            val original = (o["lrc"] as? JsonObject)?.str("lyric")?.takeIf { it.isNotBlank() } ?: return@runCatching null
+            val translated = (o["tlyric"] as? JsonObject)?.str("lyric")
+            if (translation && !translated.isNullOrBlank()) merge(original, translated) else original
+        }.getOrNull()
+    }
+
+    /** Puts the translation under each original line with the same time tag */
+    private fun merge(original: String, translated: String): String {
+        val tag = Regex("^\\[(\\d{2}:\\d{2}\\.\\d{2,3})](.*)$")
+        val map = translated.lines().mapNotNull { tag.find(it.trim()) }
+            .associate { it.groupValues[1] to it.groupValues[2].trim() }.filterValues { it.isNotEmpty() }
+        return original.lines().joinToString("\n") { line ->
+            val m = tag.find(line.trim()) ?: return@joinToString line
+            val t = map[m.groupValues[1]]
+            if (t != null && m.groupValues[2].isNotBlank()) "${line.trim()} / $t" else line
+        }
+    }
 }

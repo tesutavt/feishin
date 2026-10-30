@@ -27,6 +27,8 @@ class TesuApp : Application() {
     override fun onCreate() {
         super.onCreate()
         prefs = Prefs(this)
+        com.tesuta.tesuplayer.ui.DesktopThemes.load(this)
+        Palette.imported = prefs.importedThemes
         Palette.apply(prefs.theme, prefs.customTheme)
         downloads = Downloads(this)
         player = PlayerController(this, prefs)

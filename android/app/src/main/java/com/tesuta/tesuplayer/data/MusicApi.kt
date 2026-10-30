@@ -16,6 +16,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okio.source
 import java.security.MessageDigest
 import java.util.UUID
@@ -258,6 +259,12 @@ class PcApi(private val config: ServerConfig) : MusicApi {
         call("setRating", "id" to id, "rating" to "$rating")
     }
 
+    /** "Автоматически сохранять очередь": the computer's own queue, to continue there */
+    suspend fun savePlayQueue(ids: List<String>, current: String?, positionMs: Long) {
+        call("savePlayQueue", ids.map { "id" to it } + listOfNotNull(current?.let { "current" to it }) +
+            listOf("position" to "$positionMs", "c" to "TesuPlayer Android"))
+    }
+
     /** play counts and "recently played" live on the computer */
     override suspend fun scrobble(id: String) {
         call("scrobble", "id" to id, "submission" to "true")
@@ -379,18 +386,53 @@ class PcApi(private val config: ServerConfig) : MusicApi {
         return (r.int("found") ?: 0) to (r.int("total") ?: 0)
     }
 
-    /** Sends a music file of the phone; it lands in TesuPlayer/С телефона on the computer */
-    suspend fun upload(context: android.content.Context, track: Track) {
+    /**
+     * Sends a music file of the phone with the tags the phone knows (downloads keep them in the
+     * app, not in the file) and its cover. The computer skips songs it already has.
+     * Returns false when the computer already had the song.
+     */
+    suspend fun upload(context: android.content.Context, track: Track): Boolean {
         val uri = android.net.Uri.parse(track.streamUrl ?: track.localPath?.let { "file://$it" } ?: error("Нет файла"))
-        val name = (track.path ?: track.localPath)?.substringAfterLast('/')
-            ?: "${track.artist} - ${track.title}.${track.ext ?: "mp3"}"
+        val ext = (track.path ?: track.localPath)?.substringAfterLast('.', "")?.takeIf { it.length in 2..4 } ?: track.ext ?: "mp3"
+        val name = "${track.artist} - ${track.title}.$ext"
+        // a download of a computer song: the computer knows it by this id
+        val pcId = track.id.removePrefix("local:dl:").takeIf { track.id.startsWith("local:dl:") && !it.contains(':') }
+        val source = track.pageUrl ?: track.id.removePrefix("local:dl:yt:").takeIf { track.id.startsWith("local:dl:yt:") }
+            ?.let { if (it.startsWith("http")) it else "https://www.youtube.com/watch?v=$it" }
         val body = object : okhttp3.RequestBody() {
             override fun contentType() = "application/octet-stream".toMediaType()
             override fun writeTo(sink: okio.BufferedSink) {
                 context.contentResolver.openInputStream(uri)!!.use { sink.writeAll(it.source()) }
             }
         }
-        post("tesuUpload", body, "name" to name, "artist" to track.artist)
+        val params = listOfNotNull(
+            "name" to name, "title" to track.title, "artist" to track.artist,
+            track.album.takeIf { it.isNotBlank() }?.let { "album" to it },
+            track.year?.let { "year" to "$it" }, track.trackNumber?.let { "track" to "$it" },
+            track.genre?.let { "genre" to it }, source?.let { "source" to it }, pcId?.let { "pcId" to it },
+        )
+        val result = post("tesuUpload", body, *params.toTypedArray()).obj("upload")
+        if (result?.str("duplicate") == "true") return false
+        val file = result?.str("file") ?: return true
+        coverBytes(context, track.coverUrl)?.let { (bytes, mime) ->
+            runCatching { post("tesuUploadCover", bytes.toRequestBody(mime.toMediaType()), "file" to file, "mime" to mime) }
+        }
+        return true
+    }
+
+    /** The cover as bytes: a saved file, the system album art or an https image */
+    private suspend fun coverBytes(context: android.content.Context, url: String?): Pair<ByteArray, String>? = withContext(Dispatchers.IO) {
+        if (url.isNullOrBlank()) return@withContext null
+        runCatching {
+            val bytes = when {
+                url.startsWith("http") -> Http.newCall(Request.Builder().url(url).build()).execute().use { r ->
+                    if (r.isSuccessful) r.body?.bytes() else null
+                }
+                else -> context.contentResolver.openInputStream(android.net.Uri.parse(url))?.use { it.readBytes() }
+            } ?: return@runCatching null
+            val png = bytes.size > 4 && bytes[0] == 0x89.toByte() && bytes[1] == 'P'.code.toByte()
+            bytes to (if (png) "image/png" else "image/jpeg")
+        }.getOrNull()
     }
 
     suspend fun command(deviceId: String, command: String) {

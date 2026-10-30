@@ -7,6 +7,19 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import com.tesuta.tesuplayer.data.S
+import com.tesuta.tesuplayer.data.Updates
+import kotlinx.coroutines.delay
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -135,7 +148,7 @@ private val tabs = listOf(
 )
 
 private val titles = mapOf(
-    "settings" to "Настройки", "equalizer" to "Эквалайзер", "albums" to "Альбомы", "artists" to "Исполнители",
+    "settings" to "Настройки", "settings/{section}" to "Настройки", "equalizer" to "Эквалайзер", "albums" to "Альбомы", "artists" to "Исполнители",
     "songs" to "Треки", "genres" to "Жанры", "folders" to "Папки", "favorites" to "Избранное",
     "playlists" to "Плейлисты", "radio" to "Радиостанции", "album/{id}" to "Альбом", "artist/{id}" to "Исполнитель",
     "artist_songs/{id}" to "Все треки", "folder/{id}" to "Папка",
@@ -160,10 +173,32 @@ fun App(vm: AppViewModel) {
     val message by vm.message.collectAsState()
     val hidden by vm.hidden.collectAsState()
 
+    val context = LocalContext.current
+    val view = LocalView.current
+    val go = remember(nav) { Nav { r -> nav.navigate(r) } }
+    var lastTouch by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
     LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); vm.toast(null) } }
+    // "Предотвращать спящий режим экрана"
+    val keepOn = S.preventSleep && playerState.isPlaying
+    LaunchedEffect(keepOn) { view.keepScreenOn = keepOn }
+    // "Проверять обновления"
+    LaunchedEffect(Unit) {
+        if (!S.checkUpdates) return@LaunchedEffect
+        val latest = Updates.latest(context)?.takeIf { it.newer } ?: return@LaunchedEffect
+        if (snackbar.showSnackbar("Доступна новая версия ${latest.version}", "Скачать", duration = SnackbarDuration.Long) == SnackbarResult.ActionPerformed) {
+            Updates.open(context, latest)
+        }
+    }
     LaunchedEffect(playerState.error) { playerState.error?.let { snackbar.showSnackbar("Ошибка: $it"); vm.player.clearError() } }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    CompositionLocalProvider(LocalVm provides vm, LocalNav provides go) {
+    BoxWithConstraints(Modifier.fillMaxSize().pointerInput(Unit) {
+        // any touch resets "Время ожидания открытия полноэкранного плеера"
+        awaitPointerEventScope {
+            while (true) { awaitPointerEvent(PointerEventPass.Initial); lastTouch = System.currentTimeMillis() }
+        }
+    }) {
         // the full player is a sheet that follows the finger: 0 = open, height = closed
         val height = constraints.maxHeight.toFloat()
         val scope = rememberCoroutineScope()
@@ -183,6 +218,14 @@ fun App(vm: AppViewModel) {
             },
             velocity,
         )
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(15_000)
+                val minutes = S.fullscreenAutoOpen
+                if (minutes > 0 && !fullPlayer && vm.player.state.value.isPlaying &&
+                    System.currentTimeMillis() - lastTouch > minutes * 60_000L) settle(true)
+            }
+        }
         val dragState = rememberDraggableState(::drag)
         val sheetDrag = Modifier.draggable(dragState, Orientation.Vertical, onDragStopped = { release(it) })
         // lyrics / queue / similar lists: pulling down at their top drags the player
@@ -257,7 +300,6 @@ fun App(vm: AppViewModel) {
         ) { padding ->
             Column(Modifier.padding(padding).fillMaxSize()) {
                 if (!online) OfflineBanner()
-                val go = remember(nav) { Nav { r -> nav.navigate(r) } }
                 // Navigation already decodes Uri.encode-d arguments
                 fun arg(e: androidx.navigation.NavBackStackEntry, key: String) = e.arguments?.getString(key).orEmpty()
                 NavHost(nav, startDestination = startRoute, Modifier.weight(1f)) {
@@ -267,6 +309,7 @@ fun App(vm: AppViewModel) {
                     composable("devices") { DevicesScreen(vm) }
                     composable("downloads") { DownloadsScreen(vm, go) }
                     composable("settings") { SettingsScreen(vm, go) }
+                    composable("settings/{section}") { SettingsSectionScreen(vm, go, arg(it, "section")) }
                     composable("equalizer") { EqualizerScreen(vm) }
                     composable("albums") { AlbumsScreen(vm, go) }
                     composable("artists") { ArtistsScreen(vm, go) }
@@ -288,6 +331,17 @@ fun App(vm: AppViewModel) {
 
         AddToPlaylistDialog(vm)
         TrackInfoDialog(vm)
+        ActionSheetHost()
+        val confirm by vm.confirmQueue.collectAsState()
+        confirm?.let { yes ->
+            AlertDialog(
+                onDismissRequest = { vm.confirmQueue.value = null },
+                title = { Text("Заменить очередь?") },
+                text = { Text("Сейчас в очереди ${playerState.queue.size} треков. Они будут заменены.") },
+                confirmButton = { TextButton(onClick = yes) { Text("Заменить") } },
+                dismissButton = { TextButton(onClick = { vm.confirmQueue.value = null }) { Text("Отмена") } },
+            )
+        }
 
         if (sheetVisible) {
             FullPlayer(
@@ -296,6 +350,7 @@ fun App(vm: AppViewModel) {
             ) { settle(false) }
         }
         BackHandler(fullPlayer) { settle(false) }
+    }
     }
 }
 

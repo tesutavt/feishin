@@ -1,6 +1,22 @@
 package com.tesuta.tesuplayer.ui
 
 import android.net.Uri
+import android.content.Intent
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import coil.compose.AsyncImage
+import com.tesuta.tesuplayer.data.S
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -176,7 +192,8 @@ fun TrackList(
 fun ListActions(vm: AppViewModel, tracks: List<Track>, extra: @Composable () -> Unit = {}) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
         RoundIconButton(Icons.Default.Shuffle, "Вперемешку") { vm.play(tracks, shuffle = true) }
-        PillButton("Играть", Icons.Default.PlayArrow, { vm.play(tracks) })
+        val label = when (S.playButtonBehavior) { "next" -> "Далее"; "last" -> "В очередь"; else -> "Играть" }
+        PillButton(label, Icons.Default.PlayArrow, { vm.playButton(tracks) })
         RoundIconButton(Icons.Default.SkipNext, "Играть далее") { vm.playNext(tracks) }
         if (tracks.any(::isLibraryTrack)) RoundIconButton(Icons.AutoMirrored.Filled.PlaylistAdd, "В плейлист") { vm.addToPlaylist.value = tracks }
         if (tracks.any { !it.id.startsWith("local:") && it.source != Source.TWITCH }) RoundIconButton(Icons.Default.Download, "Скачать") { vm.download(tracks) }
@@ -186,7 +203,55 @@ fun ListActions(vm: AppViewModel, tracks: List<Track>, extra: @Composable () -> 
 }
 
 @Composable
-fun ListHeader(title: String, subtitle: String, cover: String?, vm: AppViewModel, tracks: List<Track>, extra: @Composable () -> Unit = {}) {
+fun ListHeader(
+    title: String, subtitle: String, cover: String?, vm: AppViewModel, tracks: List<Track>,
+    background: Boolean = false, links: @Composable () -> Unit = {}, extra: @Composable () -> Unit = {},
+) {
+    BlurredBackdrop(if (background && S.albumBackground) cover else null, S.albumBackgroundBlur) {
+        HeaderBody(title, subtitle, cover, vm, tracks, links, extra)
+    }
+}
+
+/** "Фоновое изображение альбома / исполнителя": the cover, blurred, behind the header */
+@Composable
+fun BlurredBackdrop(url: String?, blur: Int, content: @Composable () -> Unit) {
+    if (url == null) { content(); return }
+    Box(Modifier.fillMaxWidth()) {
+        AsyncImage(url, null, contentScale = ContentScale.Crop,
+            modifier = Modifier.matchParentSize().blur(blur.dp).graphicsLayer { alpha = 0.45f })
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Palette.base))))
+        content()
+    }
+}
+
+/** "Внешние ссылки": Last.fm, ListenBrainz, MusicBrainz, Qobuz, Spotify for an artist / album */
+@Composable
+fun ExternalLinks(artist: String, album: String? = null) {
+    if (!S.externalLinks || artist.isBlank()) return
+    val context = LocalContext.current
+    val q = Uri.encode(listOfNotNull(artist, album).joinToString(" "))
+    val a = Uri.encode(artist)
+    val links = buildList {
+        if (S.linkLastfm) add("Last.fm" to (if (album != null) "https://www.last.fm/music/$a/${Uri.encode(album)}" else "https://www.last.fm/music/$a"))
+        if (S.linkListenbrainz) add("ListenBrainz" to "https://listenbrainz.org/search/?search_term=$a&search_type=artist")
+        if (S.linkMusicbrainz) add("MusicBrainz" to "https://musicbrainz.org/search?query=$q&type=${if (album != null) "release" else "artist"}")
+        if (S.linkQobuz) add("Qobuz" to "https://www.qobuz.com/search?q=$q")
+        if (S.linkSpotify) add("Spotify" to (if (S.nativeSpotify) "spotify:search:$q" else "https://open.spotify.com/search/$q"))
+    }
+    if (links.isEmpty()) return
+    fun open(url: String) = context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(links) { (label, url) ->
+            Chip(label, false) {
+                // no Spotify app installed: the web player
+                runCatching { open(url) }.onFailure { runCatching { open("https://open.spotify.com/search/$q") } }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeaderBody(title: String, subtitle: String, cover: String?, vm: AppViewModel, tracks: List<Track>, links: @Composable () -> Unit, extra: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Cover(cover, 200.dp, radius = 18.dp)
         Spacer(Modifier.height(12.dp))
@@ -194,6 +259,8 @@ fun ListHeader(title: String, subtitle: String, cover: String?, vm: AppViewModel
         if (subtitle.isNotBlank()) Text(subtitle, color = Palette.subtext, maxLines = 2)
         Spacer(Modifier.height(12.dp))
         ListActions(vm, tracks, extra)
+        Spacer(Modifier.height(8.dp))
+        links()
     }
 }
 
@@ -208,9 +275,34 @@ fun LibrarySwitch(vm: AppViewModel) {
 
 // ---------------------------------------------------------------- cards
 
+/** The desktop album context menu, for a long press */
+@Composable
+private fun albumSheet(album: Album): (() -> Unit)? {
+    val vm = LocalVm.current ?: return null
+    val nav = LocalNav.current ?: return null
+    // playlists and stations are drawn as album cards too
+    if (album.id.startsWith("radio:") || album.artist.endsWith("треков")) return null
+    return {
+        Sheets.open(ActionSheet(album.title, album.artist, album.coverUrl, buildList {
+            add(TrackAction("Играть") { vm.tracksOf("album", album.id) { vm.play(it) } })
+            add(TrackAction("Перемешать") { vm.tracksOf("album", album.id) { vm.play(it, shuffle = true) } })
+            add(TrackAction("Играть далее") { vm.tracksOf("album", album.id) { vm.playNext(it) } })
+            add(TrackAction("Добавить в конец очереди") { vm.tracksOf("album", album.id) { vm.enqueue(it) } })
+            add(TrackAction(if (album.starred) "Убрать из избранного" else "В избранное") { vm.star(StarType.ALBUM, album.id, !album.starred) })
+            add(TrackAction("Добавить в плейлист") { vm.tracksOf("album", album.id) { vm.addToPlaylist.value = it } })
+            add(TrackAction("Скачать") { vm.tracksOf("album", album.id) { vm.download(it) } })
+            album.artistId?.let { add(TrackAction("Перейти к исполнителю") { nav.artist(it) }) }
+        }))
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AlbumCard(album: Album, size: Int = 160, onClick: () -> Unit) {
-    Column(Modifier.clickable(onClick = onClick).padding(8.dp)) {
+    val sheet = albumSheet(album)
+    val haptic = LocalHapticFeedback.current
+    val longPress: (() -> Unit)? = sheet?.let { open -> { haptic.performHapticFeedback(HapticFeedbackType.LongPress); open() } }
+    Column(Modifier.combinedClickable(onClick = onClick, onLongClick = longPress).padding(8.dp)) {
         Cover(album.coverUrl, size.dp, radius = 14.dp)
         Spacer(Modifier.height(6.dp))
         Text(album.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(size.dp))
@@ -219,15 +311,31 @@ fun AlbumCard(album: Album, size: Int = 160, onClick: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ArtistRow(artist: Artist, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp, 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    val vm = LocalVm.current
+    val haptic = LocalHapticFeedback.current
+    val sheet: (() -> Unit)? = vm?.let {
+        {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            Sheets.open(ActionSheet(artist.name, if (artist.albumCount > 0) "Альбомов: ${artist.albumCount}" else "", artist.coverUrl, listOf(
+                TrackAction("Играть") { vm.tracksOf("artist", artist.id) { vm.play(it) } },
+                TrackAction("Перемешать") { vm.tracksOf("artist", artist.id) { vm.play(it, shuffle = true) } },
+                TrackAction("Радио исполнителя") { vm.artistRadio(artist.id) },
+                TrackAction("Играть далее") { vm.tracksOf("artist", artist.id) { vm.playNext(it) } },
+                TrackAction("Добавить в конец очереди") { vm.tracksOf("artist", artist.id) { vm.enqueue(it) } },
+                TrackAction(if (artist.starred) "Убрать из избранного" else "В избранное") { vm.star(StarType.ARTIST, artist.id, !artist.starred) },
+            )))
+        }
+    }
+    Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = sheet).padding(16.dp, 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Cover(artist.coverUrl, 52.dp, radius = 26.dp)
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
             Text(artist.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (artist.albumCount > 0) Text("Альбомов: ${artist.albumCount}", color = Palette.subtext, style = MaterialTheme.typography.bodySmall)
         }
-        if (artist.starred) Icon(Icons.Default.Favorite, null, tint = Palette.pink, modifier = Modifier.size(18.dp))
+        if (artist.starred && S.showFavorites) Icon(Icons.Default.Favorite, null, tint = Palette.pink, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -264,6 +372,7 @@ fun HomeScreen(vm: AppViewModel, nav: Nav) {
     Column(Modifier.fillMaxSize()) {
         LibrarySwitch(vm)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+            if (S.homeFeature) item(key = "feature") { FeatureCarousel(vm, nav, library) }
             item {
                 Row(Modifier.padding(16.dp, 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PillButton("Перемешать всё", Icons.Default.Shuffle, { vm.shuffleAll(library) })
@@ -306,6 +415,35 @@ fun HomeScreen(vm: AppViewModel, nav: Nav) {
                         if (library == Library.PHONE) "На телефоне пока нет музыки.\nНайдите песню в «Поиске» на YouTube и скачайте её, или подключите свой компьютер в настройках."
                         else "На компьютере пока нет музыки",
                     )
+                }
+            }
+        }
+    }
+}
+
+/** "Карусель рекомендаций на главной": big random albums, one or several at a time */
+@Composable
+private fun FeatureCarousel(vm: AppViewModel, nav: Nav, library: Library) {
+    val albums = rememberLibraryLoad(vm, "feature", library) { vm.albums(library, AlbumSort.RANDOM, 10) }
+    val list = (albums as? Load.Ok)?.value.orEmpty()
+    if (list.isEmpty()) return
+    val single = S.homeFeatureStyle == "single"
+    val width = if (single) LocalConfiguration.current.screenWidthDp.dp - 32.dp else 240.dp
+    val state = rememberLazyListState()
+    LazyRow(state = state, contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
+        flingBehavior = rememberSnapFlingBehavior(state)) {
+        items(list, key = { "f" + it.id }) { album ->
+            Box(Modifier.width(width).height(if (single) 220.dp else 160.dp).clip(RoundedCornerShape(18.dp)).clickable { nav.album(album.id) }) {
+                AsyncImage(album.coverUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+                Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)))))
+                Column(Modifier.align(Alignment.BottomStart).padding(14.dp, 14.dp, 64.dp, 14.dp)) {
+                    Text(album.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = if (single) 22.sp else 17.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(album.artist, color = Color.White.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                IconButton(onClick = { vm.tracksOf("album", album.id) { vm.play(it) } },
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp).clip(RoundedCornerShape(50)).background(Palette.mauve)) {
+                    Icon(Icons.Default.PlayArrow, "Играть", tint = Palette.base)
                 }
             }
         }
@@ -366,7 +504,8 @@ fun AlbumScreen(vm: AppViewModel, nav: Nav, id: String) {
         TrackList(vm, nav, tracks, numbered = true) {
             ListHeader(info?.title ?: first?.album.orEmpty(),
                 listOfNotNull(info?.artist ?: first?.artist, info?.year?.toString(), "${tracks.size} треков · ${formatTime(tracks.sumOf { it.duration })}").joinToString(" · "),
-                info?.coverUrl ?: first?.coverUrl, vm, tracks) {
+                info?.coverUrl ?: first?.coverUrl, vm, tracks, background = true,
+                links = { ExternalLinks(info?.artist ?: first?.artist.orEmpty(), info?.title ?: first?.album) }) {
                 if (info != null) {
                     RoundIconButton(if (info.starred) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Избранное") {
                         vm.star(StarType.ALBUM, info.id, !info.starred)
@@ -375,7 +514,7 @@ fun AlbumScreen(vm: AppViewModel, nav: Nav, id: String) {
             }
             if (info != null) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    RatingBar(info.rating, 24) { vm.rateAlbum(info.id, it) }
+                    if (S.showRatings) RatingBar(info.rating, 24) { vm.rateAlbum(info.id, it) }
                 }
                 info.artistId?.let { artistId ->
                     TextButton(onClick = { nav.artist(artistId) }, modifier = Modifier.fillMaxWidth()) { Text("Исполнитель: ${info.artist}") }
@@ -405,8 +544,10 @@ fun ArtistScreen(vm: AppViewModel, nav: Nav, id: String) {
         val a = detail.artist
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
             item {
+                val art = a.coverUrl ?: detail.albums.firstOrNull()?.coverUrl
+                BlurredBackdrop(if (S.artistBackground) art else null, S.artistBackgroundBlur) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Cover(a.coverUrl ?: detail.albums.firstOrNull()?.coverUrl, 160.dp, radius = 80.dp)
+                    Cover(art, 160.dp, radius = 80.dp)
                     Spacer(Modifier.height(12.dp))
                     Text(a.name, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     Text("Альбомов: ${detail.albums.size}", color = Palette.subtext)
@@ -417,6 +558,9 @@ fun ArtistScreen(vm: AppViewModel, nav: Nav, id: String) {
                             vm.star(StarType.ARTIST, id, !a.starred)
                         }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    ExternalLinks(a.name)
+                }
                 }
             }
             if (detail.topSongs.isNotEmpty()) {

@@ -18,6 +18,8 @@ import java.util.UUID
 class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("tesuplayer", Context.MODE_PRIVATE)
 
+    init { S.init(sp) }
+
     val deviceId: String = sp.getString("device_id", null) ?: UUID.randomUUID().toString().also {
         sp.edit().putString("device_id", it).apply()
     }
@@ -59,6 +61,43 @@ class Prefs(context: Context) {
     /** Look: a preset theme or "CUSTOM" with three colours "#bg,#accent,#text" */
     var theme: String? get() = sp.getString("theme", null); set(v) = sp.edit().putString("theme", v).apply()
     var customTheme: String? get() = sp.getString("theme_custom", null); set(v) = sp.edit().putString("theme_custom", v).apply()
+    /** Desktop theme .json files imported on this phone: name -> JSON */
+    var importedThemes: Map<String, String>
+        get() = sp.getString("themes_imported", null)?.let {
+            runCatching { AppJson.decodeFromString(kotlinx.serialization.builtins.MapSerializer(String.serializer(), String.serializer()), it) }.getOrNull()
+        }.orEmpty()
+        set(v) = sp.edit().putString("themes_imported",
+            AppJson.encodeToString(kotlinx.serialization.builtins.MapSerializer(String.serializer(), String.serializer()), v)).apply()
+    /** desktop-style lyrics offset in milliseconds (positive: lyrics later) */
+    var lyricsOffsetMs: Int get() = sp.getInt("lyrics_offset", 0); set(v) = sp.edit().putInt("lyrics_offset", v).apply()
+    /** a play counts after this many seconds or this share of the song, whichever comes first (desktop scrobbling) */
+    var scrobbleSeconds: Int get() = sp.getInt("scrobble_seconds", 240); set(v) = sp.edit().putInt("scrobble_seconds", v).apply()
+    var scrobblePercent: Int get() = sp.getInt("scrobble_percent", 50); set(v) = sp.edit().putInt("scrobble_percent", v).apply()
+
+    /** Settings export / import, like the desktop "Export settings" (the computer login is left out) */
+    fun exportAll(): String = AppJson.encodeToString(
+        kotlinx.serialization.builtins.MapSerializer(String.serializer(), String.serializer()),
+        sp.all.filterKeys { it != "server" && it != "device_id" && !it.startsWith("cache_") && it != "queue" }
+            .mapValues { (_, v) -> "${v!!::class.simpleName}:$v" },
+    )
+
+    fun importAll(json: String): Int {
+        val map = AppJson.decodeFromString(kotlinx.serialization.builtins.MapSerializer(String.serializer(), String.serializer()), json)
+        val e = sp.edit()
+        map.forEach { (k, typed) ->
+            val type = typed.substringBefore(':'); val v = typed.substringAfter(':')
+            when (type) {
+                "Boolean" -> e.putBoolean(k, v.toBoolean()); "Int" -> e.putInt(k, v.toInt())
+                "Long" -> e.putLong(k, v.toLong()); "Float" -> e.putFloat(k, v.toFloat())
+                else -> e.putString(k, v)
+            }
+        }
+        e.apply()
+        return map.size
+    }
+
+    /** drops the cached library lists (they are fetched again) */
+    fun clearCache() = sp.edit().apply { sp.all.keys.filter { it.startsWith("cache_") }.forEach(::remove) }.apply()
     /** YouTube songs that are played get downloaded in the background */
     var autoDownload: Boolean get() = bool("auto_download", false); set(v) = setBool("auto_download", v)
     var visualizer: Boolean get() = bool("visualizer", false); set(v) = setBool("visualizer", v)

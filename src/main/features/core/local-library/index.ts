@@ -4,6 +4,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import os from 'os';
 
 import { downloadsDir, library } from './library';
+import { removeDuplicatePhoneCopies } from './phone-uploads';
 import { startLocalServer } from './server';
 import { importSpotify } from './spotify';
 
@@ -25,7 +26,9 @@ const ready = app.whenReady().then(async () => {
         songs: library.songs.size,
         url,
     });
-    library.scan();
+    await library.scan();
+    // copies the phone sent before duplicates were checked
+    if ((await removeDuplicatePhoneCopies()) > 0) library.scan();
 });
 
 const lanAddresses = () =>

@@ -1,17 +1,11 @@
 import { createHash } from 'crypto';
-import { createReadStream, createWriteStream, promises as fs } from 'fs';
+import { createReadStream, promises as fs } from 'fs';
 import http, { IncomingMessage, ServerResponse } from 'http';
 import { nanoid } from 'nanoid/non-secure';
 import path from 'path';
 
-import {
-    AUDIO_EXTENSIONS,
-    downloadsDir,
-    library,
-    LocalAlbum,
-    LocalArtist,
-    LocalSong,
-} from './library';
+import { library, LocalAlbum, LocalArtist, LocalSong } from './library';
+import { receivePhoneCover, receivePhoneUpload } from './phone-uploads';
 import { importSpotify } from './spotify';
 import {
     getYoutubeMix,
@@ -799,30 +793,18 @@ const readBody = (req: IncomingMessage) =>
         req.on('end', () => resolve(data));
     });
 
-const safeName = (value: string) =>
-    value
-        .replace(/[\\/:*?"<>|\r\n]/g, '_')
-        .trim()
-        .slice(0, 120) || 'track';
-
-/** A music file sent from the phone: TesuPlayer/С телефона/<artist>/<file>, then a rescan */
-const receiveUpload = async (req: IncomingMessage, p: Params) => {
-    const name = safeName(path.basename(p.get('name') ?? ''));
-    if (!AUDIO_EXTENSIONS.has(path.extname(name).toLowerCase())) {
-        throw new ApiError(10, 'Not a music file');
-    }
-    const dir = path.join(downloadsDir(), 'С телефона', safeName(p.get('artist') ?? 'Разные'));
-    await fs.mkdir(dir, { recursive: true });
-    const target = path.join(dir, name);
-    await new Promise<void>((resolve, reject) => {
-        const out = createWriteStream(target);
-        out.on('finish', resolve).on('error', reject);
-        req.on('error', reject).pipe(out);
+/** A music file sent from the phone, with the tags the phone knows (see ./phone-uploads) */
+const receiveUpload = (req: IncomingMessage, p: Params) =>
+    receivePhoneUpload(req, path.basename(p.get('name') ?? ''), {
+        album: p.get('album') || undefined,
+        artist: p.get('artist') ?? '',
+        genre: p.get('genre') || undefined,
+        pcId: p.get('pcId') || undefined,
+        source: p.get('source') || undefined,
+        title: p.get('title') ?? '',
+        track: Number(p.get('track')) || undefined,
+        year: Number(p.get('year')) || undefined,
     });
-    log.info('Received a file from a device', { target });
-    library.scan();
-    return {};
-};
 
 const md5 = (value: string) => createHash('md5').update(value).digest('hex');
 
@@ -902,7 +884,20 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
             return;
         }
         if (method === 'tesuUpload' && req.method === 'POST') {
-            sendJson(res, wrap(await receiveUpload(req, params)));
+            sendJson(res, wrap({ upload: await receiveUpload(req, params) }));
+            return;
+        }
+        if (method === 'tesuUploadCover' && req.method === 'POST') {
+            sendJson(
+                res,
+                wrap(
+                    await receivePhoneCover(
+                        req,
+                        params.get('file') ?? '',
+                        params.get('mime') ?? 'image/jpeg',
+                    ),
+                ),
+            );
             return;
         }
         const fn = methods[method];

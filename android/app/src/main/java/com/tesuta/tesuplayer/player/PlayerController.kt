@@ -12,6 +12,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.tesuta.tesuplayer.data.Prefs
+import com.tesuta.tesuplayer.data.S
 import com.tesuta.tesuplayer.data.Source
 import com.tesuta.tesuplayer.data.Streams
 import com.tesuta.tesuplayer.data.Track
@@ -88,7 +89,7 @@ class PlayerController(private val context: Context, private val prefs: Prefs) {
                 maybeAutoDj()
             }
         })
-        c.playbackParameters = PlaybackParameters(prefs.speed)
+        c.playbackParameters = params(prefs.speed)
         controller = c
         startTicker()
         return c
@@ -98,7 +99,7 @@ class PlayerController(private val context: Context, private val prefs: Prefs) {
     fun warmUp() {
         scope.launch {
             val c = runCatching { connect() }.getOrNull() ?: return@launch
-            if (c.mediaItemCount == 0) {
+            if (c.mediaItemCount == 0 && S.savePlayQueue) {
                 prefs.savedQueue?.let { (tracks, pos) ->
                     val restorable = tracks.filter { !needsResolve(it) }
                     if (restorable.isNotEmpty()) {
@@ -158,7 +159,7 @@ class PlayerController(private val context: Context, private val prefs: Prefs) {
         )
         // save the queue now and then
         val now = System.currentTimeMillis()
-        if (now - lastSaved > 5000) {
+        if (S.savePlayQueue && now - lastSaved > 5000) {
             lastSaved = now
             prefs.savedQueue = if (queue.isEmpty()) null else queue to (c.currentMediaItemIndex to c.currentPosition)
         }
@@ -207,7 +208,26 @@ class PlayerController(private val context: Context, private val prefs: Prefs) {
             .build()
     }
 
-    fun play(tracks: List<Track>, start: Int = 0, shuffle: Boolean = false, startPositionMs: Long = 0) {
+    /** Playback → Player filters: "field:text" rules; matching songs never enter the queue */
+    private fun allowed(t: Track) = S.playerFilters.none { rule ->
+        val (field, text) = rule.split(':', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+        if (text.isBlank()) return@none false
+        val value = when (field) { "title" -> t.title; "artist" -> t.artist; "album" -> t.album; "genre" -> t.genre; else -> null }
+        value?.contains(text, ignoreCase = true) == true
+    }
+
+    private fun filtered(tracks: List<Track>) = if (S.playerFilters.isEmpty()) tracks else tracks.filter(::allowed)
+
+    /** Speed with or without the pitch following it ("Сохранять тональность") */
+    private fun params(speed: Float) = PlaybackParameters(speed, if (S.preservePitch) 1f else speed)
+
+    /** Re-applies the audio settings that live on the controller */
+    fun applyAudioSettings() = withController { it.playbackParameters = params(it.playbackParameters.speed) }
+
+    fun play(all: List<Track>, start: Int = 0, shuffle: Boolean = false, startPositionMs: Long = 0) {
+        val startTrack = all.getOrNull(start)
+        val tracks = filtered(all).ifEmpty { listOfNotNull(startTrack) }
+        @Suppress("NAME_SHADOWING") val start = startTrack?.let { tracks.indexOf(it) }?.takeIf { it >= 0 } ?: 0
         if (tracks.isEmpty()) return
         queueJob?.cancel()
         queueJob = scope.launch {
@@ -238,7 +258,9 @@ class PlayerController(private val context: Context, private val prefs: Prefs) {
     }
 
     /** At the end of the queue ("Добавить в конец") */
-    fun enqueue(tracks: List<Track>) {
+    fun enqueue(all: List<Track>) {
+        val tracks = filtered(all)
+        if (tracks.isEmpty()) return
         scope.launch {
             runCatching {
                 val c = connect()
@@ -252,7 +274,9 @@ class PlayerController(private val context: Context, private val prefs: Prefs) {
     fun enqueue(track: Track) = enqueue(listOf(track))
 
     /** Right after the current track ("Играть далее") */
-    fun playNext(tracks: List<Track>) {
+    fun playNext(all: List<Track>) {
+        val tracks = filtered(all)
+        if (tracks.isEmpty()) return
         scope.launch {
             runCatching {
                 val c = connect()
@@ -264,18 +288,23 @@ class PlayerController(private val context: Context, private val prefs: Prefs) {
         }
     }
 
-    /** Auto-DJ: when the last track starts, append similar ones */
+    /** Every track played in this session, for Auto-DJ "Разрешить дубликаты" */
+    private val played = mutableSetOf<String>()
+
+    /** Auto-DJ: when [S.autoDjTiming] tracks are left, append [S.autoDjCount] similar ones */
     private fun maybeAutoDj() {
         val c = controller ?: return
-        if (!prefs.autoDj || autoDjBusy || c.hasNextMediaItem() || c.repeatMode != Player.REPEAT_MODE_OFF) return
+        c.currentMediaItem?.mediaId?.let { played += it }
+        val left = c.mediaItemCount - c.currentMediaItemIndex - 1
+        if (!prefs.autoDj || autoDjBusy || left >= S.autoDjTiming || c.repeatMode != Player.REPEAT_MODE_OFF) return
         val current = c.currentMediaItem?.mediaId?.let { known[it] } ?: return
         if (current.source == Source.TWITCH) return
         val provider = similarProvider ?: return
         autoDjBusy = true
         scope.launch {
             runCatching {
-                val queued = queueTracks(c).map { it.id }.toSet()
-                val more = provider(current).filter { it.id !in queued }.take(10)
+                val queued = queueTracks(c).map { it.id }.toSet() + if (S.autoDjDuplicates) emptySet() else played
+                val more = provider(current).filter { it.id !in queued && allowed(it) }.take(S.autoDjCount)
                 for (t in more) c.addMediaItem(toMediaItem(t))
             }
             autoDjBusy = false
@@ -288,11 +317,31 @@ class PlayerController(private val context: Context, private val prefs: Prefs) {
         publish()
     }
 
-    fun toggle() = withController { if (it.isPlaying) it.pause() else { if (it.playbackState == Player.STATE_IDLE) it.prepare(); it.play() } }
+    private var fadeJob: Job? = null
+
+    /** "Плавное изменение звука": a short volume ramp on pause and play */
+    private fun fade(c: MediaController, play: Boolean) {
+        fadeJob?.cancel()
+        if (!S.audioFade) { c.volume = 1f; if (play) c.play() else c.pause(); return }
+        fadeJob = scope.launch {
+            if (play) { c.volume = 0f; c.play() }
+            val from = c.volume
+            val to = if (play) 1f else 0f
+            for (i in 1..10) { c.volume = from + (to - from) * i / 10f; delay(25) }
+            if (!play) { c.pause(); c.volume = 1f }
+            publish()
+        }
+    }
+
+    fun toggle() = withController {
+        if (it.isPlaying) fade(it, false) else { if (it.playbackState == Player.STATE_IDLE) it.prepare(); fade(it, true) }
+    }
     /** A live stream stalled or lags: jump to the live edge */
     fun goLive() = withController { it.seekToDefaultPosition(); it.prepare(); it.play() }
-    fun pause() = withController { it.pause() }
-    fun resume() = withController { it.play() }
+    fun pause() = withController { fade(it, false) }
+    fun resume() = withController { fade(it, true) }
+    /** The ±N seconds buttons ("Отображать кнопки перехода") */
+    fun skipBy(seconds: Int) = withController { it.seekTo((it.currentPosition + seconds * 1000L).coerceIn(0, it.duration.coerceAtLeast(0))) }
     fun next() = withController { it.seekToNextMediaItem() }
     fun previous() = withController { it.seekToPrevious() }
     fun seekTo(ms: Long) = withController { it.seekTo(ms) }
@@ -325,7 +374,7 @@ class PlayerController(private val context: Context, private val prefs: Prefs) {
     }
     fun setSpeed(speed: Float) = withController {
         prefs.speed = speed
-        it.playbackParameters = PlaybackParameters(speed)
+        it.playbackParameters = params(speed)
     }
     /** Pause after [minutes]; null cancels, [SLEEP_END_OF_TRACK] waits for the track to end */
     fun sleepIn(minutes: Int?) {

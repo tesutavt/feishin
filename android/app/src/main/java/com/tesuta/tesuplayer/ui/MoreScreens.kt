@@ -62,6 +62,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -302,186 +303,9 @@ fun DownloadsScreen(vm: AppViewModel, nav: Nav) {
     }
 }
 
-// ---------------------------------------------------------------- Settings
-
-@Composable
-private fun SettingSwitch(title: String, description: String, initial: Boolean, onChange: (Boolean) -> Unit) {
-    var on by remember { mutableStateOf(initial) }
-    Row(Modifier.fillMaxWidth().clickable { on = !on; onChange(on) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(title, fontWeight = FontWeight.SemiBold)
-            Text(description, color = Palette.subtext, style = MaterialTheme.typography.bodySmall)
-        }
-        Switch(checked = on, onCheckedChange = { on = it; onChange(it) })
-    }
-}
-
-@Composable
-fun SettingsScreen(vm: AppViewModel, nav: Nav) {
-    val server by vm.server.collectAsState()
-    val reachable by vm.pcReachable.collectAsState()
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var ytdlp by remember { mutableStateOf<String?>(null) }
-    var updating by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { ytdlp = Streams.version(context) }
-
-    var url by rememberSaveable { mutableStateOf("") }
-    var user by rememberSaveable { mutableStateOf("tesu") }
-    var password by rememberSaveable { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
-    val prefs = vm.prefs
-
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        item {
-            SectionTitle("Мой компьютер")
-            val s = server
-            if (s != null) {
-                Text("${s.url}\n${s.username} · ${if (reachable) "на связи" else "не отвечает"}", color = Palette.subtext)
-                Spacer(Modifier.height(8.dp))
-                PillButton("Отключить", Icons.Default.Delete, { vm.disconnect() }, primary = false)
-            } else {
-                Text(
-                    "Подключите TesuPlayer на ПК, чтобы слушать его музыку, синхронизировать избранное и плейлисты и видеть, где сейчас играет музыка.\n" +
-                        "На ПК: Настройки → Моя музыка → «Доступ с других устройств».",
-                    color = Palette.subtext,
-                )
-                OutlinedTextField(url, { url = it }, label = { Text("Адрес") }, placeholder = { Text("192.168.1.10:45173") },
-                    singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(user, { user = it }, label = { Text("Логин") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(password, { password = it }, label = { Text("Пароль") }, singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(8.dp))
-                PillButton(if (busy) "Подключаюсь…" else "Подключить", Icons.Default.PlayArrow, {
-                    if (!busy && url.isNotBlank()) scope.launch {
-                        busy = true
-                        vm.toast(runCatching { vm.connect(url, user, password) }.fold({ "Компьютер подключён" }, { "Не удалось: ${it.message}" }))
-                        busy = false
-                    }
-                })
-            }
-        }
-        item {
-            SectionTitle("Воспроизведение")
-            SettingSwitch("Auto-DJ", "Когда очередь заканчивается — добавлять похожие треки (для YouTube — YouTube Mix)", prefs.autoDj) { prefs.autoDj = it }
-            SettingSwitch("Скачивать то, что слушаю", "YouTube-треки сохраняются на телефон в фоне, пока играют: в следующий раз - без интернета", prefs.autoDownload) { prefs.autoDownload = it }
-            SettingSwitch("Учитывать прослушивания", "Считать прослушивания и «недавно игранные» (на ПК — синхронно)", prefs.scrobble) { prefs.scrobble = it }
-            Row(Modifier.fillMaxWidth().clickable { nav.to("equalizer") }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Equalizer, null, tint = Palette.mauve)
-                Text("Эквалайзер", Modifier.padding(start = 12.dp).weight(1f), fontWeight = FontWeight.SemiBold)
-                Text(if (prefs.equalizerEnabled) "вкл" else "выкл", color = Palette.subtext)
-            }
-        }
-        item { LookSettings(vm) }
-        item { SpotifySettings(vm) }
-        item {
-            SectionTitle("Тексты песен")
-            SettingSwitch("Получать тексты песен", "Из тегов файлов и с lrclib.net", prefs.lyricsEnabled) { prefs.lyricsEnabled = it }
-            SettingSwitch("Следовать за текстом", "Прокручивать текст до текущей строки", prefs.lyricsFollow) { prefs.lyricsFollow = it }
-        }
-        item {
-            SectionTitle("Главная")
-            val sections = remember { mutableStateListOf<HomeSection>().apply { addAll(prefs.homeSections) } }
-            HomeSection.entries.forEach { s ->
-                SettingSwitch(s.label, "Показывать на главной", s in sections) { on ->
-                    if (on) sections.add(s) else sections.remove(s)
-                    prefs.homeSections = HomeSection.entries.filter { it in sections }
-                }
-            }
-        }
-        item {
-            SectionTitle("YouTube и Twitch")
-            Text("yt-dlp: ${ytdlp ?: "готовится…"}", color = Palette.subtext)
-            Spacer(Modifier.height(8.dp))
-            PillButton(if (updating) "Обновляю…" else "Обновить yt-dlp", Icons.Default.Download, {
-                if (!updating) scope.launch {
-                    updating = true
-                    vm.toast(runCatching { Streams.update(context) }.fold({ "yt-dlp: $it" }, { "Ошибка: ${it.message}" }))
-                    ytdlp = Streams.version(context)
-                    updating = false
-                }
-            }, primary = false)
-            Spacer(Modifier.height(8.dp))
-            PillButton("Исправить теги скачанного с YouTube", Icons.Default.Sell, { vm.retagDownloads() }, primary = false)
-            Text("Заново ищет исполнителя, альбом и обложку в каталоге iTunes - исправляет перепутанные название и исполнителя. " +
-                "Если трека там нет: меню трека → «Поменять местами название и исполнителя».",
-                color = Palette.subtext, style = MaterialTheme.typography.bodySmall)
-            Text("Если YouTube перестал играть — обновите yt-dlp. Если не ищет — включите «Частный DNS» (dns.google) в настройках Android.",
-                color = Palette.subtext, style = MaterialTheme.typography.bodySmall)
-        }
-        item {
-            SectionTitle("О приложении")
-            Text("TesuPlayer ${BuildConfig.VERSION_NAME}\nФорк Feishin (github.com/jeffvli/feishin), GPL-3.0", color = Palette.subtext)
-            Spacer(Modifier.height(24.dp))
-        }
-    }
-}
-
-/** Theme, hidden parts of the interface and the visualizer, like the desktop settings */
-@Composable
-private fun LookSettings(vm: AppViewModel) {
-    val prefs = vm.prefs
-    val context = LocalContext.current
-    var theme by remember { mutableStateOf(AppTheme.entries.firstOrNull { it.name == prefs.theme } ?: AppTheme.MACCHIATO) }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        SectionTitle("Оформление")
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(AppTheme.entries) { t ->
-                Chip(t.label, theme == t) { theme = t; if (t != AppTheme.CUSTOM || prefs.customTheme != null) vm.setTheme(t) }
-            }
-        }
-        if (theme == AppTheme.CUSTOM) {
-            val start = (prefs.customTheme ?: "#24273A,#C6A0F6,#CAD3F5").split(',')
-            val fields = remember { mutableStateListOf(*start.toTypedArray()) }
-            Text("Своя тема из трёх цветов (#RRGGBB): остальные оттенки подбираются сами", color = Palette.subtext,
-                style = MaterialTheme.typography.bodySmall)
-            listOf("Фон", "Акцент", "Текст").forEachIndexed { i, label ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val color = runCatching { Color(android.graphics.Color.parseColor(fields[i].trim())) }.getOrNull()
-                    Box(Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(color ?: Palette.surface0))
-                    OutlinedTextField(fields[i], { fields[i] = it }, label = { Text(label) }, singleLine = true,
-                        isError = color == null, modifier = Modifier.padding(start = 12.dp).fillMaxWidth())
-                }
-            }
-            PillButton("Применить", Icons.Default.Palette, {
-                val custom = fields.joinToString(",") { it.trim() }
-                if (Palette.parseCustom(custom) != null) vm.setTheme(AppTheme.CUSTOM, custom) else vm.toast("Неверный цвет")
-            })
-        }
-
-        SectionTitle("Визуализация")
-        val visualizer by vm.visualizer.collectAsState()
-        val microphone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) vm.setVisualizer(true) else vm.toast("Без доступа к микрофону Android не даёт читать звук")
-        }
-        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Спектр в плеере", fontWeight = FontWeight.SemiBold)
-                Text("Полосы поверх обложки. Android просит доступ к микрофону: приложение слушает только свой звук",
-                    color = Palette.subtext, style = MaterialTheme.typography.bodySmall)
-            }
-            Switch(checked = visualizer, onCheckedChange = { on ->
-                val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-                if (!on || granted) vm.setVisualizer(on) else microphone.launch(Manifest.permission.RECORD_AUDIO)
-            })
-        }
-
-        SectionTitle("Интерфейс")
-        val hidden by vm.hidden.collectAsState()
-        UiPart.entries.forEach { part ->
-            Row(Modifier.fillMaxWidth().clickable { vm.setHidden(part, part !in hidden) }.padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Text(part.label, Modifier.weight(1f))
-                Switch(checked = part !in hidden, onCheckedChange = { vm.setHidden(part, !it) })
-            }
-        }
-    }
-}
-
 /** Spotify playlist / album by link or CSV, no Spotify account */
 @Composable
-private fun SpotifySettings(vm: AppViewModel) {
+fun SpotifySettings(vm: AppViewModel) {
     val context = LocalContext.current
     val progress by vm.importProgress.collectAsState()
     val server by vm.server.collectAsState()
@@ -548,6 +372,15 @@ fun EqualizerScreen(vm: AppViewModel) {
                     Chip(name, false) { presets[name]!!.forEachIndexed { i, v -> bands[i] = v }; prefs.equalizerBands = bands.toList() }
                 }
             }
+            // desktop "Предварительный усилитель"; Android's LoudnessEnhancer only boosts
+            var preamp by remember { mutableFloatStateOf(com.tesuta.tesuplayer.data.S.eqPreamp.toFloat()) }
+            Text("Предварительный усилитель: ${"%+.1f".format(preamp / 100f)} дБ", color = Palette.subtext)
+            Slider(
+                value = preamp, valueRange = 0f..1200f,
+                onValueChange = { preamp = (it / 50).toInt() * 50f },
+                onValueChangeFinished = { com.tesuta.tesuplayer.data.S.set("s_eq_preamp", preamp.toInt()) },
+                enabled = enabled,
+            )
         }
         items(count) { i ->
             Column {
