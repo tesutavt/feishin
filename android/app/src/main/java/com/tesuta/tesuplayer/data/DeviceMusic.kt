@@ -48,6 +48,7 @@ class DeviceMusic(private val context: Context, private val downloads: Downloads
     private val mutex = Mutex()
     private var cache: List<Track>? = null
     private var cachedAt = 0L
+    private var cachedDownloads: List<Track>? = null
 
     fun invalidate() { cache = null }
 
@@ -60,14 +61,16 @@ class DeviceMusic(private val context: Context, private val downloads: Downloads
     )
 
     private suspend fun all(): List<Track> = mutex.withLock {
-        cache?.takeIf { System.currentTimeMillis() - cachedAt < 120_000 }?.let { return it }
-        val fresh = load()
+        val saved = downloads.items.value
+        cache?.takeIf { System.currentTimeMillis() - cachedAt < 120_000 && cachedDownloads === saved }?.let { return it }
+        val fresh = load(saved)
         cache = fresh
         cachedAt = System.currentTimeMillis()
+        cachedDownloads = saved
         fresh
     }
 
-    private suspend fun load(): List<Track> = withContext(Dispatchers.IO) {
+    private suspend fun load(saved: List<Track>): List<Track> = withContext(Dispatchers.IO) {
         val genreColumn = if (Build.VERSION.SDK_INT >= 30) MediaStore.Audio.Media.GENRE else null
         val projection = listOfNotNull(
             MediaStore.Audio.Media._ID,
@@ -83,8 +86,8 @@ class DeviceMusic(private val context: Context, private val downloads: Downloads
             MediaStore.Audio.Media.DATE_ADDED,
             genreColumn,
         ).toTypedArray()
-        // YouTube downloads carry their real tags in the downloads index
-        val saved = downloads.items.value.filter { it.localPath != null }.associateBy { it.localPath!! }
+        // downloads come from their own index below (real tags, stable ids)
+        val savedPaths = saved.mapNotNullTo(HashSet()) { it.localPath }
         val tracks = mutableListOf<Pair<Track, Long>>()
         runCatching {
             context.contentResolver.query(
@@ -93,6 +96,7 @@ class DeviceMusic(private val context: Context, private val downloads: Downloads
                 while (c.moveToNext()) {
                     val id = c.getLong(0)
                     val path = c.getString(9)
+                    if (path != null && path in savedPaths) continue
                     val fileName = c.getString(6).orEmpty().substringBeforeLast('.')
                     var title = c.getString(1)?.takeIf { it.isNotBlank() } ?: fileName
                     var artist = c.getString(2)?.takeIf { it.isNotBlank() && it != "<unknown>" }.orEmpty()
@@ -101,7 +105,7 @@ class DeviceMusic(private val context: Context, private val downloads: Downloads
                         if (parts.size == 2) { artist = parts[0]; if (title == fileName) title = parts[1] }
                     }
                     val albumId = c.getLong(4)
-                    var track = Track(
+                    val track = Track(
                         id = "local:$id",
                         title = title,
                         artist = artist.ifEmpty { "Неизвестный исполнитель" },
@@ -115,17 +119,23 @@ class DeviceMusic(private val context: Context, private val downloads: Downloads
                         path = path,
                         genre = if (genreColumn != null) c.getString(11) else null,
                     )
-                    saved[path]?.let { d ->
-                        track = track.copy(
-                            title = d.title, artist = d.artist, album = d.album.ifBlank { track.album },
-                            coverUrl = d.coverUrl ?: track.coverUrl, year = d.year ?: track.year,
-                            trackNumber = d.trackNumber ?: track.trackNumber, genre = d.genre ?: track.genre,
-                            albumId = "local:${d.artist}:${d.album}",
-                        )
-                    }
                     tracks += track.copy(artistId = "local-artist:${track.artist}") to c.getLong(10)
                 }
             }
+        }
+        // finished downloads, also those the system has not indexed (yet) and the offline copies
+        // of computer songs, which live in the app folder the system never indexes
+        for (d in saved) {
+            val path = d.localPath ?: continue
+            if (downloads.state(d) != DownloadState.DONE) continue
+            val file = File(path)
+            val artist = d.artist.ifBlank { "Неизвестный исполнитель" }
+            tracks += d.copy(
+                id = "local:dl:${d.id}", artist = artist, source = Source.SERVER,
+                streamUrl = android.net.Uri.fromFile(file).toString(), path = path,
+                albumId = "local:$artist:${d.album}", artistId = "local-artist:$artist",
+                starred = false, rating = 0, playCount = 0,
+            ) to file.lastModified() / 1000
         }
         tracks.sortedByDescending { it.second }.map { it.first }
     }

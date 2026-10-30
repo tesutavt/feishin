@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +51,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -70,7 +72,6 @@ import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
 import coil.compose.AsyncImage
 import com.tesuta.tesuplayer.data.Source
-import com.tesuta.tesuplayer.data.StarType
 import com.tesuta.tesuplayer.player.PlayerController
 import com.tesuta.tesuplayer.player.PlayerUi
 
@@ -112,7 +113,7 @@ fun MiniPlayer(state: PlayerUi, player: PlayerController, onOpen: () -> Unit) {
 private enum class PlayerTab(val label: String) { COVER("Обложка"), LYRICS("Текст"), QUEUE("Очередь"), SIMILAR("Похожие") }
 
 @Composable
-fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, onClose: () -> Unit) {
+fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, modifier: Modifier = Modifier, onClose: () -> Unit) {
     val player = vm.player
     var tab by rememberSaveable { mutableStateOf(PlayerTab.COVER) }
     var dragging by remember { mutableStateOf(false) }
@@ -121,12 +122,14 @@ fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, onClose: () -> Unit)
     var speedDialog by remember { mutableStateOf(false) }
     val track = state.track
     val libraryTrack = track != null && track.source == Source.SERVER && !track.id.startsWith("radio:")
+    val starrable = libraryTrack || (track?.source == Source.YOUTUBE && track.pageUrl != null)
 
+    // drawn above the Scaffold: without this, text and icons fall back to black
+    CompositionLocalProvider(LocalContentColor provides Palette.text) {
     Box(
-        Modifier
+        modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Palette.surface0, Palette.base, Palette.mantle)))
-            .clickable(enabled = false) {},
+            .background(Brush.verticalGradient(listOf(Palette.surface0, Palette.base, Palette.mantle))),
     ) {
         Column(
             Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 8.dp),
@@ -170,11 +173,13 @@ fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, onClose: () -> Unit)
 
             // favourite, rating, playlist, timer, speed, info — the desktop player bar
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (libraryTrack && track != null) {
-                    IconButton(onClick = { vm.star(StarType.SONG, track.id, !track.starred) }) {
+                if (starrable && track != null) {
+                    IconButton(onClick = { vm.toggleStar(track) }) {
                         Icon(if (track.starred) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Избранное",
                             tint = if (track.starred) Palette.pink else Palette.subtext)
                     }
+                }
+                if (libraryTrack && track != null) {
                     RatingBar(track.rating, 20) { vm.rate(track, it) }
                     IconButton(onClick = { vm.addToPlaylist.value = listOf(track) }) {
                         Icon(Icons.AutoMirrored.Filled.PlaylistAdd, "В плейлист", tint = Palette.subtext)
@@ -247,6 +252,7 @@ fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, onClose: () -> Unit)
             }
             Spacer(Modifier.height(8.dp))
         }
+    }
     }
     if (timerDialog) SleepTimerDialog(player) { timerDialog = false }
     if (speedDialog) SpeedDialog(player, state.speed) { speedDialog = false }

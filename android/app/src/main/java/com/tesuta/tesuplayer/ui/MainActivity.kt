@@ -10,10 +10,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +60,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,11 +70,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -151,7 +161,51 @@ fun App(vm: AppViewModel) {
     LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); vm.toast(null) } }
     LaunchedEffect(playerState.error) { playerState.error?.let { snackbar.showSnackbar("Ошибка: $it"); vm.player.clearError() } }
 
-    Box(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        // the full player is a sheet that follows the finger: 0 = open, height = closed
+        val height = constraints.maxHeight.toFloat()
+        val scope = rememberCoroutineScope()
+        val sheet = remember { Animatable(if (fullPlayer) 0f else height) }
+        val sheetVisible by remember { derivedStateOf { sheet.value < height } }
+        LaunchedEffect(height) { sheet.updateBounds(0f, height); sheet.snapTo(if (fullPlayer) 0f else height) }
+        fun settle(open: Boolean, velocity: Float = 0f) {
+            fullPlayer = open
+            scope.launch { sheet.animateTo(if (open) 0f else height, initialVelocity = velocity) }
+        }
+        fun drag(delta: Float) { scope.launch { sheet.snapTo(sheet.value + delta) } }
+        fun release(velocity: Float) = settle(
+            when {
+                velocity > 1500f -> false
+                velocity < -1500f -> true
+                else -> sheet.value < height / 2
+            },
+            velocity,
+        )
+        val dragState = rememberDraggableState(::drag)
+        val sheetDrag = Modifier.draggable(dragState, Orientation.Vertical, onDragStopped = { release(it) })
+        // lyrics / queue / similar lists: pulling down at their top drags the player
+        val sheetScroll = remember(height) {
+            object : NestedScrollConnection {
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                    if (available.y >= 0 || sheet.value <= 0f) return Offset.Zero
+                    drag(available.y)
+                    return Offset(0f, available.y)
+                }
+
+                override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                    if (available.y <= 0 || source != NestedScrollSource.UserInput) return Offset.Zero
+                    drag(available.y)
+                    return Offset(0f, available.y)
+                }
+
+                override suspend fun onPreFling(available: Velocity): Velocity {
+                    if (sheet.value <= 0f) return Velocity.Zero
+                    release(available.y)
+                    return available
+                }
+            }
+        }
+
         Scaffold(
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
@@ -179,7 +233,9 @@ fun App(vm: AppViewModel) {
             },
             bottomBar = {
                 Column {
-                    if (playerState.hasMedia || playerState.loading) MiniPlayer(playerState, vm.player) { fullPlayer = true }
+                    if (playerState.hasMedia || playerState.loading) {
+                        Box(sheetDrag) { MiniPlayer(playerState, vm.player) { settle(true) } }
+                    }
                     NavigationBar(containerColor = Palette.mantle) {
                         tabs.forEach { tab ->
                             NavigationBarItem(
@@ -231,10 +287,13 @@ fun App(vm: AppViewModel) {
         AddToPlaylistDialog(vm)
         TrackInfoDialog(vm)
 
-        AnimatedVisibility(fullPlayer, enter = slideInVertically { it }, exit = slideOutVertically { it }) {
-            FullPlayer(playerState, vm, Nav { r -> fullPlayer = false; nav.navigate(r) }) { fullPlayer = false }
+        if (sheetVisible) {
+            FullPlayer(
+                playerState, vm, Nav { r -> settle(false); nav.navigate(r) },
+                Modifier.offset { IntOffset(0, sheet.value.toInt()) }.nestedScroll(sheetScroll).then(sheetDrag),
+            ) { settle(false) }
         }
-        BackHandler(fullPlayer) { fullPlayer = false }
+        BackHandler(fullPlayer) { settle(false) }
     }
 }
 

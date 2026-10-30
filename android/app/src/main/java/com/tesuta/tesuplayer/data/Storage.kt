@@ -185,6 +185,10 @@ class Downloads(private val context: Context) {
         synchronized(this) { save(_items.value.filterNot { it.id == track.id }) }
     }
 
+    fun update(id: String, block: (Track) -> Track) = synchronized(this) {
+        if (isDownloaded(id)) save(_items.value.map { if (it.id == id) block(it) else it })
+    }
+
     fun refresh() {
         _items.value = _items.value.toList()
     }

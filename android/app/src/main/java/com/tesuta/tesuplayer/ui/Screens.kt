@@ -132,7 +132,9 @@ fun trackActions(vm: AppViewModel, nav: Nav, track: Track, list: List<Track>, pl
         if (track.source != Source.TWITCH) add(TrackAction("Радио по треку") { vm.trackRadio(track) })
         if (isLibraryTrack(track)) {
             add(TrackAction("Добавить в плейлист") { vm.addToPlaylist.value = listOf(track) })
-            add(TrackAction(if (track.starred) "Убрать из избранного" else "В избранное") { vm.star(StarType.SONG, track.id, !track.starred) })
+        }
+        if (isLibraryTrack(track) || (track.source == Source.YOUTUBE && track.pageUrl != null)) {
+            add(TrackAction(if (track.starred) "Убрать из избранного" else "В избранное") { vm.toggleStar(track) })
         }
         if (playlistId != null && index >= 0) add(TrackAction("Убрать из плейлиста") { vm.removeFromPlaylist(playlistId, index) })
         if (track.albumId != null && isLibraryTrack(track)) add(TrackAction("Перейти к альбому") { nav.album(track.albumId) })
@@ -142,10 +144,6 @@ fun trackActions(vm: AppViewModel, nav: Nav, track: Track, list: List<Track>, pl
             add(TrackAction(if (track.source == Source.YOUTUBE) "Скачать как музыку" else "Скачать на телефон") { vm.download(listOf(track)) })
         }
         if (downloaded) add(TrackAction("Удалить загрузку") { vm.downloads.items.value.find { it.id == track.id }?.let(vm.downloads::delete) })
-        if (track.source == Source.YOUTUBE && track.pageUrl != null) {
-            add(TrackAction("В избранное") { vm.starYoutube(track, true) })
-            if (track.starred) add(TrackAction("Убрать из избранного") { vm.starYoutube(track, false) })
-        }
         add(TrackAction("Информация и оценка") { vm.trackInfo.value = track })
         add(TrackAction("Поделиться") { vm.share(track) })
     }
@@ -511,14 +509,12 @@ fun FoldersScreen(vm: AppViewModel, nav: Nav, id: String?) {
 
 @Composable
 fun FavoritesScreen(vm: AppViewModel, nav: Nav) {
-    val library by vm.library.collectAsState()
     var tab by rememberSaveable { mutableStateOf(0) }
     Column(Modifier.fillMaxSize()) {
-        LibrarySwitch(vm)
-        Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.padding(16.dp, 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("Треки", "Альбомы", "Исполнители").forEachIndexed { i, label -> Chip(label, tab == i) { tab = i } }
         }
-        LoadContent(rememberLibraryLoad(vm, "starred", library) { vm.api(library).starred() }, isEmpty = { false }) { s ->
+        LoadContent(rememberLibraryLoad(vm, "starred") { vm.starred() }, isEmpty = { false }) { s ->
             when (tab) {
                 0 -> if (s.tracks.isEmpty()) Empty("Нет избранных треков", Icons.Default.FavoriteBorder) else
                     TrackList(vm, nav, s.tracks) { Column(Modifier.padding(16.dp)) { ListActions(vm, s.tracks) } }

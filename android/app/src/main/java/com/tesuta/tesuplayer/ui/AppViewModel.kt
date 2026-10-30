@@ -19,6 +19,7 @@ import com.tesuta.tesuplayer.data.RemoteDevice
 import com.tesuta.tesuplayer.data.ServerConfig
 import com.tesuta.tesuplayer.data.Source
 import com.tesuta.tesuplayer.data.StarType
+import com.tesuta.tesuplayer.data.Starred
 import com.tesuta.tesuplayer.data.Streams
 import com.tesuta.tesuplayer.data.Track
 import com.tesuta.tesuplayer.data.normalizeUrl
@@ -136,7 +137,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun local(tracks: List<Track>): List<Track> {
         val saved = downloads.items.value.associateBy { it.id }
         val usable = if (online.value) tracks else tracks.filter { saved.containsKey(it.id) || it.id.startsWith("local:") }
-        return usable.map { saved[it.id] ?: it }
+        // the list knows the current favourite / rating, the downloaded copy may be older
+        return usable.map { t -> saved[t.id]?.copy(starred = t.starred, rating = t.rating) ?: t }
     }
 
     fun play(tracks: List<Track>, start: Int = 0, shuffle: Boolean = false) {
@@ -197,7 +199,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun star(type: StarType, id: String, starred: Boolean) = launchAction(if (starred) "Добавлено в избранное" else "Убрано из избранного") {
         apiFor(id).star(type, id, starred)
+        if (type == StarType.SONG) markStarred(id, starred)
+    }
+
+    /** The heart in the player and the track menu: library song or YouTube */
+    fun toggleStar(track: Track) =
+        if (track.source == Source.YOUTUBE) starYoutube(track, !track.starred) else star(StarType.SONG, track.id, !track.starred)
+
+    /** The queue and the downloads keep their own copies of a track */
+    private fun markStarred(id: String, starred: Boolean) {
         player.state.value.queue.firstOrNull { it.id == id }?.let { player.updateTrack(it.copy(starred = starred)) }
+        downloads.update(id) { it.copy(starred = starred) }
+    }
+
+    /** Favourites of the computer and of the phone (its own music, downloads, YouTube) together */
+    suspend fun starred(): Starred {
+        val local = phone.starred()
+        val remote = pc?.let { runCatching { it.starred() }.getOrNull() } ?: return local
+        return Starred(remote.tracks + local.tracks, remote.albums + local.albums, remote.artists + local.artists)
     }
 
     /** YouTube song as a favourite track: on the computer (synced) or on the phone */
@@ -210,6 +229,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         } else {
             phone.starYoutube(track, starred)
         }
+        markStarred(track.id, starred)
     }
 
     fun rate(track: Track, rating: Int) = launchAction("Оценка: $rating") {
