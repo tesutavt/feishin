@@ -37,6 +37,7 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         setupEqualizer(player)
+        (application as TesuApp).audioSession.value = player.audioSessionId
 
         val openApp = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),

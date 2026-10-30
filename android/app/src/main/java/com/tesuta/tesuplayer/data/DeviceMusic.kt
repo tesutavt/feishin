@@ -23,6 +23,8 @@ data class LocalStoreData(
     val radio: List<RadioStation> = emptyList(),
     /** favourite YouTube songs (no computer connected) */
     val youtube: List<Track> = emptyList(),
+    /** YouTube songs in playlists (Spotify import) */
+    val playlistTracks: List<Track> = emptyList(),
 )
 
 @Serializable
@@ -266,12 +268,12 @@ class DeviceMusic(private val context: Context, private val downloads: Downloads
     }
 
     override suspend fun playlists() = store.data.playlists.map { p ->
-        val first = all().firstOrNull { it.id == p.trackIds.firstOrNull() }
+        val first = (all() + store.data.playlistTracks).firstOrNull { it.id == p.trackIds.firstOrNull() }
         Playlist(p.id, p.name, p.trackIds.size, first?.coverUrl)
     }
 
     override suspend fun playlistTracks(id: String): List<Track> {
-        val byId = all().associateBy { it.id }
+        val byId = (store.data.playlistTracks + all()).associateBy { it.id }
         return store.data.playlists.firstOrNull { it.id == id }?.trackIds.orEmpty().mapNotNull { byId[it] }.map(::withState)
     }
 
@@ -279,6 +281,26 @@ class DeviceMusic(private val context: Context, private val downloads: Downloads
         val id = "lp:" + UUID.randomUUID().toString().take(8)
         store.update { it.copy(playlists = it.playlists + LocalPlaylist(id, name, trackIds)) }
         return id
+    }
+
+    /** A playlist of phone songs and YouTube songs (these are kept with it) */
+    fun createPlaylistOf(name: String, tracks: List<Track>) {
+        val extra = tracks.filter { !it.id.startsWith("local") }
+        store.update { d ->
+            d.copy(
+                playlists = d.playlists + LocalPlaylist("lp:" + UUID.randomUUID().toString().take(8), name, tracks.map { it.id }),
+                playlistTracks = d.playlistTracks.filterNot { t -> extra.any { it.id == t.id } } + extra,
+            )
+        }
+    }
+
+    /** Spotify import: the phone's own copy of a song */
+    suspend fun find(title: String, artist: String): Track? {
+        val t = Spotify.normalize(title)
+        val artists = artist.split(',', '&').map(Spotify::normalize).filter { it.isNotEmpty() }
+        return all().firstOrNull { s ->
+            Spotify.normalize(s.title) == t && (artists.isEmpty() || Spotify.normalize(s.artist).let { a -> artists.any { a.contains(it) || it.contains(a) } })
+        }
     }
 
     private fun editPlaylist(id: String, block: (LocalPlaylist) -> LocalPlaylist) =

@@ -91,6 +91,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.tesuta.tesuplayer.R
+import com.tesuta.tesuplayer.data.UiPart
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -123,14 +124,14 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private data class Tab(val route: String, val label: String, val icon: ImageVector)
+private data class Tab(val route: String, val label: String, val icon: ImageVector, val part: UiPart? = null)
 
 private val tabs = listOf(
     Tab("home", "Главная", Icons.Default.Album),
     Tab("library", "Библиотека", Icons.AutoMirrored.Filled.QueueMusic),
     Tab("search", "Поиск", Icons.Default.Search),
-    Tab("devices", "Где играет", Icons.Default.Devices),
-    Tab("downloads", "Загрузки", Icons.Default.DownloadForOffline),
+    Tab("devices", "Где играет", Icons.Default.Devices, UiPart.TAB_DEVICES),
+    Tab("downloads", "Загрузки", Icons.Default.DownloadForOffline, UiPart.TAB_DOWNLOADS),
 )
 
 private val titles = mapOf(
@@ -157,6 +158,7 @@ fun App(vm: AppViewModel) {
     var fullPlayer by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val message by vm.message.collectAsState()
+    val hidden by vm.hidden.collectAsState()
 
     LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); vm.toast(null) } }
     LaunchedEffect(playerState.error) { playerState.error?.let { snackbar.showSnackbar("Ошибка: $it"); vm.player.clearError() } }
@@ -234,10 +236,10 @@ fun App(vm: AppViewModel) {
             bottomBar = {
                 Column {
                     if (playerState.hasMedia || playerState.loading) {
-                        Box(sheetDrag) { MiniPlayer(playerState, vm.player) { settle(true) } }
+                        Box(sheetDrag) { MiniPlayer(playerState, vm.player, UiPart.MINI_PROGRESS !in hidden) { settle(true) } }
                     }
                     NavigationBar(containerColor = Palette.mantle) {
-                        tabs.forEach { tab ->
+                        tabs.filter { it.part == null || it.part !in hidden }.forEach { tab ->
                             NavigationBarItem(
                                 selected = route == tab.route,
                                 onClick = { nav.navigateTab(tab.route) },

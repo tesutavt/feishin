@@ -17,11 +17,13 @@ import com.tesuta.tesuplayer.data.PcApi
 import com.tesuta.tesuplayer.data.Playlist
 import com.tesuta.tesuplayer.data.RemoteDevice
 import com.tesuta.tesuplayer.data.ServerConfig
+import com.tesuta.tesuplayer.data.Spotify
 import com.tesuta.tesuplayer.data.Source
 import com.tesuta.tesuplayer.data.StarType
 import com.tesuta.tesuplayer.data.Starred
 import com.tesuta.tesuplayer.data.Streams
 import com.tesuta.tesuplayer.data.Track
+import com.tesuta.tesuplayer.data.UiPart
 import com.tesuta.tesuplayer.data.normalizeUrl
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -262,6 +264,70 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Playlists a track can be added to (the library it belongs to) */
     suspend fun playlistsFor(tracks: List<Track>): List<Playlist> =
         (tracks.firstOrNull()?.let { apiFor(it.id) } ?: playlistLibrary()).playlists()
+
+    // ---------------------------------------------------------------- Spotify import, sending to the computer
+
+    /** done / total while a Spotify playlist is matched */
+    val importProgress = MutableStateFlow<Pair<Int, Int>?>(null)
+
+    /**
+     * Spotify link or CSV text -> playlist. With the computer connected it does the work
+     * (the playlist is synced); otherwise the phone's own music first, then YouTube.
+     */
+    fun importSpotify(url: String? = null, csv: String? = null, name: String? = null) = viewModelScope.launch {
+        if (importProgress.value != null) return@launch
+        importProgress.value = 0 to 0
+        runCatching {
+            val api = pc
+            if (api != null && _pcReachable.value) {
+                val (found, total) = api.importSpotify(url, csv, name)
+                return@runCatching "Плейлист на компьютере: найдено $found из $total"
+            }
+            val (title, tracks) = if (csv != null) (name ?: "Импорт из Spotify") to Spotify.parseCsv(csv) else Spotify.fetch(url.orEmpty())
+            if (tracks.isEmpty()) error("Треков не найдено")
+            val found = mutableListOf<Track>()
+            tracks.forEachIndexed { i, t ->
+                importProgress.value = i to tracks.size
+                val match = phone.find(t.title, t.artist)
+                    ?: runCatching { Streams.searchYoutube("${t.artist.substringBefore(',')} - ${t.title}", 1).firstOrNull() }.getOrNull()
+                if (match != null) found += match
+            }
+            phone.createPlaylistOf(name ?: title, found)
+            "Плейлист «${name ?: title}»: найдено ${found.size} из ${tracks.size}"
+        }.onSuccess { toast(it); changed() }.onFailure { toast("Не получилось: ${it.message}") }
+        importProgress.value = null
+    }
+
+    fun canSendToPc(track: Track) = pc != null && track.id.startsWith("local:")
+
+    fun sendToPc(tracks: List<Track>) = viewModelScope.launch {
+        val api = pc ?: return@launch
+        val todo = tracks.filter(::canSendToPc)
+        if (todo.isEmpty()) return@launch
+        toast("Отправляю на компьютер: ${todo.size}")
+        var failed = 0
+        for (t in todo) runCatching { api.upload(getApplication(), t) }.onFailure { failed++ }
+        toast(if (failed == 0) "Отправлено на компьютер: ${todo.size}" else "Не удалось отправить: $failed из ${todo.size}")
+    }
+
+    // ---------------------------------------------------------------- look
+
+    val hidden = MutableStateFlow(prefs.hidden)
+
+    fun setHidden(part: UiPart, hide: Boolean) {
+        hidden.value = if (hide) hidden.value + part else hidden.value - part
+        prefs.hidden = hidden.value
+    }
+
+    val visualizer = MutableStateFlow(prefs.visualizer)
+
+    fun setVisualizer(on: Boolean) { visualizer.value = on; prefs.visualizer = on }
+
+    fun setTheme(theme: AppTheme, custom: String? = prefs.customTheme) {
+        prefs.theme = theme.name
+        prefs.customTheme = custom
+        Palette.apply(theme.name, custom)
+    }
 
     // ---------------------------------------------------------------- radio stations
 

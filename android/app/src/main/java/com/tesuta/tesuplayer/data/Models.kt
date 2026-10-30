@@ -108,6 +108,19 @@ enum class HomeSection(val label: String) {
     PLAYLISTS("Плейлисты"),
 }
 
+/** Parts of the interface that can be hidden, like the desktop sidebar / player bar settings */
+enum class UiPart(val label: String) {
+    TAB_DEVICES("Вкладка «Где играет»"),
+    TAB_DOWNLOADS("Вкладка «Загрузки»"),
+    MINI_PROGRESS("Полоска прогресса в мини-плеере"),
+    PLAYER_LYRICS("Текст песни в плеере"),
+    PLAYER_QUEUE("Очередь в плеере"),
+    PLAYER_SIMILAR("Похожие в плеере"),
+    PLAYER_RATING("Оценка и «В плейлист» в плеере"),
+    PLAYER_TIMER("Таймер сна в плеере"),
+    PLAYER_SPEED("Скорость в плеере"),
+}
+
 @Serializable
 data class RadioStation(val id: String, val name: String, val url: String)
 

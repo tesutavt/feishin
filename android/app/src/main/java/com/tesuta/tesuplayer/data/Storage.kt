@@ -56,6 +56,15 @@ class Prefs(context: Context) {
             ?: HomeSection.entries.toList()
         set(v) = sp.edit().putString("home", v.joinToString(",") { it.name }).apply()
 
+    /** Look: a preset theme or "CUSTOM" with three colours "#bg,#accent,#text" */
+    var theme: String? get() = sp.getString("theme", null); set(v) = sp.edit().putString("theme", v).apply()
+    var customTheme: String? get() = sp.getString("theme_custom", null); set(v) = sp.edit().putString("theme_custom", v).apply()
+    var visualizer: Boolean get() = bool("visualizer", false); set(v) = setBool("visualizer", v)
+    /** Parts of the interface turned off in the settings */
+    var hidden: Set<UiPart>
+        get() = sp.getString("hidden", null)?.split(',')?.mapNotNull { n -> UiPart.entries.firstOrNull { it.name == n } }?.toSet().orEmpty()
+        set(v) = sp.edit().putString("hidden", v.joinToString(",") { it.name }).apply()
+
     /** The queue survives a restart, like on the desktop */
     var savedQueue: Pair<List<Track>, Pair<Int, Long>>?
         get() = runCatching {

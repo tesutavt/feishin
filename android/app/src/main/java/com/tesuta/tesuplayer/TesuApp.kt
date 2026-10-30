@@ -8,6 +8,7 @@ import com.tesuta.tesuplayer.data.Downloads
 import com.tesuta.tesuplayer.data.Prefs
 import com.tesuta.tesuplayer.data.Streams
 import com.tesuta.tesuplayer.player.PlayerController
+import com.tesuta.tesuplayer.ui.Palette
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.concurrent.thread
@@ -20,9 +21,13 @@ class TesuApp : Application() {
     private val _online = MutableStateFlow(true)
     val online: StateFlow<Boolean> = _online
 
+    /** The player's audio session, for the visualizer */
+    val audioSession = MutableStateFlow(0)
+
     override fun onCreate() {
         super.onCreate()
         prefs = Prefs(this)
+        Palette.apply(prefs.theme, prefs.customTheme)
         downloads = Downloads(this)
         player = PlayerController(this, prefs)
         // Unpacking Python takes a few seconds on first launch

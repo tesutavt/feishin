@@ -1,5 +1,19 @@
 package com.tesuta.tesuplayer.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.core.content.ContextCompat
+import com.tesuta.tesuplayer.data.Spotify
+import com.tesuta.tesuplayer.data.UiPart
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -357,6 +371,8 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
                 Text(if (prefs.equalizerEnabled) "вкл" else "выкл", color = Palette.subtext)
             }
         }
+        item { LookSettings(vm) }
+        item { SpotifySettings(vm) }
         item {
             SectionTitle("Тексты песен")
             SettingSwitch("Получать тексты песен", "Из тегов файлов и с lrclib.net", prefs.lyricsEnabled) { prefs.lyricsEnabled = it }
@@ -391,6 +407,104 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
             SectionTitle("О приложении")
             Text("TesuPlayer ${BuildConfig.VERSION_NAME}\nФорк Feishin (github.com/jeffvli/feishin), GPL-3.0", color = Palette.subtext)
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+/** Theme, hidden parts of the interface and the visualizer, like the desktop settings */
+@Composable
+private fun LookSettings(vm: AppViewModel) {
+    val prefs = vm.prefs
+    val context = LocalContext.current
+    var theme by remember { mutableStateOf(AppTheme.entries.firstOrNull { it.name == prefs.theme } ?: AppTheme.MACCHIATO) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        SectionTitle("Оформление")
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(AppTheme.entries) { t ->
+                Chip(t.label, theme == t) { theme = t; if (t != AppTheme.CUSTOM || prefs.customTheme != null) vm.setTheme(t) }
+            }
+        }
+        if (theme == AppTheme.CUSTOM) {
+            val start = (prefs.customTheme ?: "#24273A,#C6A0F6,#CAD3F5").split(',')
+            val fields = remember { mutableStateListOf(*start.toTypedArray()) }
+            Text("Своя тема из трёх цветов (#RRGGBB): остальные оттенки подбираются сами", color = Palette.subtext,
+                style = MaterialTheme.typography.bodySmall)
+            listOf("Фон", "Акцент", "Текст").forEachIndexed { i, label ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val color = runCatching { Color(android.graphics.Color.parseColor(fields[i].trim())) }.getOrNull()
+                    Box(Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(color ?: Palette.surface0))
+                    OutlinedTextField(fields[i], { fields[i] = it }, label = { Text(label) }, singleLine = true,
+                        isError = color == null, modifier = Modifier.padding(start = 12.dp).fillMaxWidth())
+                }
+            }
+            PillButton("Применить", Icons.Default.Palette, {
+                val custom = fields.joinToString(",") { it.trim() }
+                if (Palette.parseCustom(custom) != null) vm.setTheme(AppTheme.CUSTOM, custom) else vm.toast("Неверный цвет")
+            })
+        }
+
+        SectionTitle("Визуализация")
+        val visualizer by vm.visualizer.collectAsState()
+        val microphone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) vm.setVisualizer(true) else vm.toast("Без доступа к микрофону Android не даёт читать звук")
+        }
+        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Спектр в плеере", fontWeight = FontWeight.SemiBold)
+                Text("Полосы поверх обложки. Android просит доступ к микрофону: приложение слушает только свой звук",
+                    color = Palette.subtext, style = MaterialTheme.typography.bodySmall)
+            }
+            Switch(checked = visualizer, onCheckedChange = { on ->
+                val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                if (!on || granted) vm.setVisualizer(on) else microphone.launch(Manifest.permission.RECORD_AUDIO)
+            })
+        }
+
+        SectionTitle("Интерфейс")
+        val hidden by vm.hidden.collectAsState()
+        UiPart.entries.forEach { part ->
+            Row(Modifier.fillMaxWidth().clickable { vm.setHidden(part, part !in hidden) }.padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(part.label, Modifier.weight(1f))
+                Switch(checked = part !in hidden, onCheckedChange = { vm.setHidden(part, !it) })
+            }
+        }
+    }
+}
+
+/** Spotify playlist / album by link or CSV, no Spotify account */
+@Composable
+private fun SpotifySettings(vm: AppViewModel) {
+    val context = LocalContext.current
+    val progress by vm.importProgress.collectAsState()
+    val server by vm.server.collectAsState()
+    var link by rememberSaveable { mutableStateOf("") }
+    val csv = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val text = runCatching { context.contentResolver.openInputStream(uri)!!.bufferedReader().use { it.readText() } }.getOrNull()
+        val name = uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.')
+        if (text == null) vm.toast("Не удалось прочитать файл") else vm.importSpotify(csv = text, name = name)
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        SectionTitle("Импорт из Spotify")
+        Text(
+            "Без аккаунта Spotify: ссылка на публичный плейлист или альбом. Треки ищутся в вашей музыке, потом на YouTube. " +
+                (if (server != null) "Плейлист появится на компьютере и здесь. " else "") +
+                "Больше 100 треков - загрузите CSV из Exportify, TuneMyMusic или Soundiiz.",
+            color = Palette.subtext, style = MaterialTheme.typography.bodySmall,
+        )
+        OutlinedTextField(link, { link = it }, label = { Text("Ссылка Spotify") }, singleLine = true,
+            placeholder = { Text("https://open.spotify.com/playlist/…") }, modifier = Modifier.fillMaxWidth())
+        val p = progress
+        if (p != null) {
+            Text(if (p.second > 0) "Ищу треки: ${p.first} из ${p.second}" else "Импортирую…", color = Palette.mauve)
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PillButton("Импортировать", Icons.Default.Download, {
+                    if (Spotify.isLink(link)) { vm.importSpotify(url = link.trim()); link = "" } else vm.toast("Это не ссылка Spotify")
+                })
+                PillButton("Из CSV", Icons.Default.Description, { csv.launch("*/*") }, primary = false)
+            }
         }
     }
 }

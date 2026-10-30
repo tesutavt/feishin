@@ -13,8 +13,10 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.longOrNull
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okio.source
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -22,6 +24,12 @@ import java.util.concurrent.TimeUnit
 val Http: OkHttpClient = OkHttpClient.Builder()
     .connectTimeout(15, TimeUnit.SECONDS)
     .readTimeout(30, TimeUnit.SECONDS)
+    .build()
+
+/** Big bodies: Spotify import (YouTube searches on the computer) and file uploads take a while */
+private val uploadHttp: OkHttpClient = Http.newBuilder()
+    .readTimeout(15, TimeUnit.MINUTES)
+    .writeTimeout(5, TimeUnit.MINUTES)
     .build()
 
 /**
@@ -345,6 +353,44 @@ class PcApi(private val config: ServerConfig) : MusicApi {
             )
         }
         return commands to devices
+    }
+
+    private suspend fun post(method: String, body: okhttp3.RequestBody, vararg params: Pair<String, String>): JsonObject {
+        val request = Request.Builder().url(url(method, params.toList())).post(body).build()
+        val root = withContext(Dispatchers.IO) {
+            uploadHttp.newCall(request).execute().use { r ->
+                val text = r.body?.string().orEmpty()
+                if (!r.isSuccessful) error("HTTP ${r.code}: ${text.take(200)}")
+                AppJson.parseToJsonElement(text)
+            }
+        }.jsonObject["subsonic-response"]?.jsonObject ?: error("Это не TesuPlayer")
+        if (root.str("status") != "ok") error(root.obj("error")?.str("message") ?: "Ошибка сервера")
+        return root
+    }
+
+    /** Spotify link or CSV: the computer builds the playlist (it is synced to every device) */
+    suspend fun importSpotify(url: String? = null, csv: String? = null, name: String? = null): Pair<Int, Int> {
+        val form = okhttp3.FormBody.Builder().apply {
+            url?.let { add("url", it) }
+            csv?.let { add("csv", it) }
+            name?.let { add("name", it) }
+        }.build()
+        val r = post("tesuImportSpotify", form).obj("import") ?: error("Нет ответа")
+        return (r.int("found") ?: 0) to (r.int("total") ?: 0)
+    }
+
+    /** Sends a music file of the phone; it lands in TesuPlayer/С телефона on the computer */
+    suspend fun upload(context: android.content.Context, track: Track) {
+        val uri = android.net.Uri.parse(track.streamUrl ?: track.localPath?.let { "file://$it" } ?: error("Нет файла"))
+        val name = (track.path ?: track.localPath)?.substringAfterLast('/')
+            ?: "${track.artist} - ${track.title}.${track.ext ?: "mp3"}"
+        val body = object : okhttp3.RequestBody() {
+            override fun contentType() = "application/octet-stream".toMediaType()
+            override fun writeTo(sink: okio.BufferedSink) {
+                context.contentResolver.openInputStream(uri)!!.use { sink.writeAll(it.source()) }
+            }
+        }
+        post("tesuUpload", body, "name" to name, "artist" to track.artist)
     }
 
     suspend fun command(deviceId: String, command: String) {

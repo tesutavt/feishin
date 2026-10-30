@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
@@ -143,6 +144,7 @@ fun trackActions(vm: AppViewModel, nav: Nav, track: Track, list: List<Track>, pl
         if (downloadable && !downloaded) {
             add(TrackAction(if (track.source == Source.YOUTUBE) "Скачать как музыку" else "Скачать на телефон") { vm.download(listOf(track)) })
         }
+        if (vm.canSendToPc(track)) add(TrackAction("Отправить на компьютер") { vm.sendToPc(listOf(track)) })
         if (downloaded) add(TrackAction("Удалить загрузку") { vm.downloads.items.value.find { it.id == track.id }?.let(vm.downloads::delete) })
         add(TrackAction("Информация и оценка") { vm.trackInfo.value = track })
         add(TrackAction("Поделиться") { vm.share(track) })
@@ -177,6 +179,7 @@ fun ListActions(vm: AppViewModel, tracks: List<Track>, extra: @Composable () -> 
         RoundIconButton(Icons.Default.SkipNext, "Играть далее") { vm.playNext(tracks) }
         if (tracks.any(::isLibraryTrack)) RoundIconButton(Icons.AutoMirrored.Filled.PlaylistAdd, "В плейлист") { vm.addToPlaylist.value = tracks }
         if (tracks.any { !it.id.startsWith("local:") && it.source != Source.TWITCH }) RoundIconButton(Icons.Default.Download, "Скачать") { vm.download(tracks) }
+        if (tracks.any(vm::canSendToPc)) RoundIconButton(Icons.Default.Computer, "На компьютер") { vm.sendToPc(tracks) }
         extra()
     }
 }

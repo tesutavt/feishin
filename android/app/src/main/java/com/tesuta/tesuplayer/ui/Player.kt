@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -53,6 +54,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -71,15 +73,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
 import coil.compose.AsyncImage
+import com.tesuta.tesuplayer.TesuApp
 import com.tesuta.tesuplayer.data.Source
+import com.tesuta.tesuplayer.data.UiPart
 import com.tesuta.tesuplayer.player.PlayerController
 import com.tesuta.tesuplayer.player.PlayerUi
 
 @Composable
-fun MiniPlayer(state: PlayerUi, player: PlayerController, onOpen: () -> Unit) {
+fun MiniPlayer(state: PlayerUi, player: PlayerController, showProgress: Boolean = true, onOpen: () -> Unit) {
     Surface(color = Palette.mantle, modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
         Column {
-            if (state.duration > 0 && !state.isLive) {
+            if (showProgress && state.duration > 0 && !state.isLive) {
                 LinearProgressIndicator(
                     progress = { (state.position.toFloat() / state.duration).coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth().height(2.dp),
@@ -110,7 +114,9 @@ fun MiniPlayer(state: PlayerUi, player: PlayerController, onOpen: () -> Unit) {
     }
 }
 
-private enum class PlayerTab(val label: String) { COVER("Обложка"), LYRICS("Текст"), QUEUE("Очередь"), SIMILAR("Похожие") }
+private enum class PlayerTab(val label: String, val part: UiPart?) {
+    COVER("Обложка", null), LYRICS("Текст", UiPart.PLAYER_LYRICS), QUEUE("Очередь", UiPart.PLAYER_QUEUE), SIMILAR("Похожие", UiPart.PLAYER_SIMILAR),
+}
 
 @Composable
 fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, modifier: Modifier = Modifier, onClose: () -> Unit) {
@@ -122,6 +128,11 @@ fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, modifier: Modifier =
     var speedDialog by remember { mutableStateOf(false) }
     val track = state.track
     val libraryTrack = track != null && track.source == Source.SERVER && !track.id.startsWith("radio:")
+    val hidden by vm.hidden.collectAsState()
+    val visualizer by vm.visualizer.collectAsState()
+    val audioSession by (vm.getApplication<TesuApp>()).audioSession.collectAsState()
+    val tabs = PlayerTab.entries.filter { it.part == null || it.part !in hidden }
+    val shown = if (tab in tabs) tab else PlayerTab.COVER
     val starrable = libraryTrack || (track?.source == Source.YOUTUBE && track.pageUrl != null)
 
     // drawn above the Scaffold: without this, text and icons fall back to black
@@ -138,11 +149,11 @@ fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, modifier: Modifier =
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) { Icon(Icons.Default.KeyboardArrowDown, "Close", Modifier.size(32.dp)) }
                 Spacer(Modifier.weight(1f))
-                PlayerTab.entries.forEach { t ->
+                if (tabs.size > 1) tabs.forEach { t ->
                     Text(
                         t.label,
-                        color = if (tab == t) Palette.mauve else Palette.subtext,
-                        fontWeight = if (tab == t) FontWeight.Bold else FontWeight.Normal,
+                        color = if (shown == t) Palette.mauve else Palette.subtext,
+                        fontWeight = if (shown == t) FontWeight.Bold else FontWeight.Normal,
                         fontSize = 13.sp,
                         modifier = Modifier.clickable { tab = t }.padding(horizontal = 6.dp, vertical = 8.dp),
                     )
@@ -150,13 +161,17 @@ fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, modifier: Modifier =
             }
 
             Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-                when (tab) {
+                when (shown) {
                     PlayerTab.COVER -> Box(
                         Modifier.fillMaxWidth(0.92f).aspectRatio(1f).clip(RoundedCornerShape(24.dp)).background(Palette.surface0),
                         contentAlignment = Alignment.Center,
                     ) {
                         Cover(null, 120.dp)
                         AsyncImage(model = state.artwork, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                        if (visualizer) {
+                            VisualizerBars(audioSession, state.isPlaying,
+                                Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.3f).padding(horizontal = 12.dp))
+                        }
                     }
                     PlayerTab.LYRICS -> LyricsView(vm, state)
                     PlayerTab.QUEUE -> QueueView(state, player)
@@ -179,17 +194,17 @@ fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, modifier: Modifier =
                             tint = if (track.starred) Palette.pink else Palette.subtext)
                     }
                 }
-                if (libraryTrack && track != null) {
+                if (libraryTrack && track != null && UiPart.PLAYER_RATING !in hidden) {
                     RatingBar(track.rating, 20) { vm.rate(track, it) }
                     IconButton(onClick = { vm.addToPlaylist.value = listOf(track) }) {
                         Icon(Icons.AutoMirrored.Filled.PlaylistAdd, "В плейлист", tint = Palette.subtext)
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = { timerDialog = true }) {
+                if (UiPart.PLAYER_TIMER !in hidden) IconButton(onClick = { timerDialog = true }) {
                     Icon(Icons.Default.Bedtime, "Таймер сна", tint = if (state.sleepAt != null) Palette.mauve else Palette.subtext)
                 }
-                if (!state.isLive) {
+                if (!state.isLive && UiPart.PLAYER_SPEED !in hidden) {
                     IconButton(onClick = { speedDialog = true }) {
                         Icon(Icons.Default.Speed, "Скорость", tint = if (state.speed != 1f) Palette.mauve else Palette.subtext)
                     }
