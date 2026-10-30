@@ -1720,7 +1720,16 @@
         "connectFailed": "Не удалось подключиться",
         "useThisComputer": "Вернуться на этот компьютер",
         "retag": "Исправить теги скачанного с YouTube",
-        "retagDone": "Обновлено треков: {{fixed}} из {{total}}"
+        "retagDone": "Обновлено треков: {{fixed}} из {{total}}",
+        "spotifyTitle": "Импорт из Spotify",
+        "spotifyHint": "Без аккаунта Spotify: вставьте ссылку на публичный плейлист или альбом. Каждый трек ищется в вашей музыке, а если его нет - на YouTube. Для больших плейлистов (больше 100 треков) загрузите CSV, например из Exportify, TuneMyMusic или Soundiiz.",
+        "spotifyLink": "Ссылка на плейлист или альбом",
+        "spotifyImport": "Импортировать",
+        "spotifyCsv": "Или файл CSV",
+        "spotifyCsvPlaceholder": "Выбрать файл...",
+        "spotifyProgress": "Ищу треки: {{done}} из {{total}}",
+        "spotifyDone": "Плейлист создан: найдено {{found}} из {{total}} треков",
+        "spotifyFailed": "Не удалось импортировать"
     },
     "devices": {
         "title": "Где играет",

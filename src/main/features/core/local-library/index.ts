@@ -5,6 +5,7 @@ import os from 'os';
 
 import { downloadsDir, library } from './library';
 import { startLocalServer } from './server';
+import { importSpotify } from './spotify';
 
 import log from '/@/main/logger';
 
@@ -90,6 +91,16 @@ ipcMain.handle(
             window.webContents.send('local-library-changed', result);
         }
         return result;
+    },
+);
+
+ipcMain.handle(
+    'local-library-import-spotify',
+    async (event, input: { csv?: string; name?: string; url?: string }) => {
+        await ready;
+        return importSpotify(input, (done, total) =>
+            event.sender.send('local-library-import-progress', { done, total }),
+        );
     },
 );
 

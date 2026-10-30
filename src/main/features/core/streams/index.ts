@@ -5,6 +5,7 @@ import path from 'path';
 import { TagLib } from 'taglib-wasm';
 
 import { downloadsDir, library } from '/@/main/features/core/local-library/library';
+import { setSpotifyYoutubeFinder } from '/@/main/features/core/local-library/spotify';
 import {
     registerYoutube,
     setYoutubeMixProvider,
@@ -410,6 +411,12 @@ const asSong = (item: ExternalSearchResult) => {
 ipcMain.handle('streams-register-youtube', (_event, items: ExternalSearchResult[]) =>
     registerYoutube(items.map(asSong)),
 );
+
+// Spotify import: the first search result stands in for a song that is not in the library
+setSpotifyYoutubeFinder(async (query) => {
+    const [first] = await searchYoutube(query, 1);
+    return first ? registerYoutube([asSong(first)])[0] : null;
+});
 
 setYoutubeMixProvider(async (videoId) => {
     const binary = await requireYtDlp();

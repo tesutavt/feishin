@@ -1,6 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { queryKeys } from '/@/renderer/api/query-keys';
 import {
     getRemoteLibrary,
     setRemoteLibrary,
@@ -8,11 +10,14 @@ import {
     useLocalLibraryInfo,
 } from '/@/renderer/features/local-library/hooks/use-local-library';
 import { YtDlpStatusLine } from '/@/renderer/features/streams/components/streams-panel';
+import { useCurrentServerId } from '/@/renderer/store';
 import { Button } from '/@/shared/components/button/button';
+import { FileInput } from '/@/shared/components/file-input/file-input';
 import { Group } from '/@/shared/components/group/group';
 import { NumberInput } from '/@/shared/components/number-input/number-input';
 import { Paper } from '/@/shared/components/paper/paper';
 import { PasswordInput } from '/@/shared/components/password-input/password-input';
+import { Progress } from '/@/shared/components/progress/progress';
 import { Stack } from '/@/shared/components/stack/stack';
 import { Switch } from '/@/shared/components/switch/switch';
 import { TextInput } from '/@/shared/components/text-input/text-input';
@@ -172,6 +177,78 @@ const OtherComputer = () => {
     );
 };
 
+/** Spotify playlist / album -> playlist of this library, no Spotify account needed */
+const SpotifyImport = () => {
+    const { t } = useTranslation();
+    const queryClient = useQueryClient();
+    const serverId = useCurrentServerId();
+    const [url, setUrl] = useState('');
+    const [progress, setProgress] = useState<null | { done: number; total: number }>(null);
+
+    const run = async (input: { csv?: string; name?: string; url?: string }) => {
+        setProgress({ done: 0, total: 0 });
+        try {
+            const result = await window.api.localLibrary.importSpotify(input, (done, total) =>
+                setProgress({ done, total }),
+            );
+            await queryClient.invalidateQueries({ queryKey: queryKeys.playlists.root(serverId) });
+            toast.success({
+                message: t('library.spotifyDone', { found: result.found, total: result.total }),
+                title: result.name,
+            });
+            setUrl('');
+        } catch (error) {
+            toast.error({ message: (error as Error).message, title: t('library.spotifyFailed') });
+        } finally {
+            setProgress(null);
+        }
+    };
+
+    return (
+        <Section title={t('library.spotifyTitle')}>
+            <Text isMuted size="sm">
+                {t('library.spotifyHint')}
+            </Text>
+            <Group align="flex-end">
+                <TextInput
+                    label={t('library.spotifyLink')}
+                    onChange={(e) => setUrl(e.currentTarget.value)}
+                    placeholder="https://open.spotify.com/playlist/..."
+                    style={{ flex: 1 }}
+                    value={url}
+                />
+                <Button
+                    disabled={!url.trim()}
+                    loading={progress !== null}
+                    onClick={() => run({ url: url.trim() })}
+                    variant="filled"
+                >
+                    {t('library.spotifyImport')}
+                </Button>
+            </Group>
+            <FileInput
+                accept=".csv,text/csv"
+                disabled={progress !== null}
+                label={t('library.spotifyCsv')}
+                onChange={async (file) => {
+                    if (!file) return;
+                    run({ csv: await file.text(), name: file.name.replace(/\.csv$/i, '') });
+                }}
+                placeholder={t('library.spotifyCsvPlaceholder')}
+                value={null}
+            />
+            {progress && progress.total > 0 && (
+                <Stack gap={4}>
+                    <Progress value={(progress.done / progress.total) * 100} />
+                    <Text isMuted size="xs">
+                        {t('library.spotifyProgress', progress)}
+                    </Text>
+                </Stack>
+            )}
+        </Section>
+    );
+};
+
 /** Earlier YouTube downloads: find their real album / artist / cover */
 const RetagButton = () => {
     const { t } = useTranslation();
@@ -255,6 +332,8 @@ export const LibraryTab = () => {
             <RemoteAccess info={info} setInfo={setInfo} />
 
             <OtherComputer />
+
+            <SpotifyImport />
 
             <Section title="YouTube / Twitch">
                 <YtDlpStatusLine />

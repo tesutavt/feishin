@@ -1707,7 +1707,16 @@
         "connectFailed": "Could not connect",
         "useThisComputer": "Back to this computer",
         "retag": "Fix tags of YouTube downloads",
-        "retagDone": "Updated {{fixed}} of {{total}} tracks"
+        "retagDone": "Updated {{fixed}} of {{total}} tracks",
+        "spotifyTitle": "Import from Spotify",
+        "spotifyHint": "No Spotify account needed: paste a link to a public playlist or album. Each track is looked up in your music, then on YouTube. For big playlists (over 100 tracks) load a CSV, for example from Exportify, TuneMyMusic or Soundiiz.",
+        "spotifyLink": "Playlist or album link",
+        "spotifyImport": "Import",
+        "spotifyCsv": "Or a CSV file",
+        "spotifyCsvPlaceholder": "Choose a file...",
+        "spotifyProgress": "Looking up tracks: {{done}} of {{total}}",
+        "spotifyDone": "Playlist created: {{found}} of {{total}} tracks found",
+        "spotifyFailed": "Import failed"
     },
     "devices": {
         "title": "Where it's playing",

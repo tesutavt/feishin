@@ -1,10 +1,18 @@
 import { createHash } from 'crypto';
-import { createReadStream, promises as fs } from 'fs';
+import { createReadStream, createWriteStream, promises as fs } from 'fs';
 import http, { IncomingMessage, ServerResponse } from 'http';
 import { nanoid } from 'nanoid/non-secure';
 import path from 'path';
 
-import { library, LocalAlbum, LocalArtist, LocalSong } from './library';
+import {
+    AUDIO_EXTENSIONS,
+    downloadsDir,
+    library,
+    LocalAlbum,
+    LocalArtist,
+    LocalSong,
+} from './library';
+import { importSpotify } from './spotify';
 import {
     getYoutubeMix,
     getYoutubeSong,
@@ -673,6 +681,14 @@ const methods: Record<string, (p: Params) => object | Promise<object>> = {
                 .map(deviceJson),
         };
     },
+    /** Spotify playlist / album link or CSV text (POST): becomes a playlist of this library */
+    tesuImportSpotify: async (p) => ({
+        import: await importSpotify({
+            csv: p.get('csv') ?? undefined,
+            name: p.get('name') ?? undefined,
+            url: p.get('url') ?? undefined,
+        }),
+    }),
     unstar: (p) => {
         for (const id of ids(p, 'id', 'albumId', 'artistId')) delete u().starred[id];
         library.save();
@@ -783,6 +799,31 @@ const readBody = (req: IncomingMessage) =>
         req.on('end', () => resolve(data));
     });
 
+const safeName = (value: string) =>
+    value
+        .replace(/[\\/:*?"<>|\r\n]/g, '_')
+        .trim()
+        .slice(0, 120) || 'track';
+
+/** A music file sent from the phone: TesuPlayer/С телефона/<artist>/<file>, then a rescan */
+const receiveUpload = async (req: IncomingMessage, p: Params) => {
+    const name = safeName(path.basename(p.get('name') ?? ''));
+    if (!AUDIO_EXTENSIONS.has(path.extname(name).toLowerCase())) {
+        throw new ApiError(10, 'Not a music file');
+    }
+    const dir = path.join(downloadsDir(), 'С телефона', safeName(p.get('artist') ?? 'Разные'));
+    await fs.mkdir(dir, { recursive: true });
+    const target = path.join(dir, name);
+    await new Promise<void>((resolve, reject) => {
+        const out = createWriteStream(target);
+        out.on('finish', resolve).on('error', reject);
+        req.on('error', reject).pipe(out);
+    });
+    log.info('Received a file from a device', { target });
+    library.scan();
+    return {};
+};
+
 const md5 = (value: string) => createHash('md5').update(value).digest('hex');
 
 const isLoopback = (req: IncomingMessage) =>
@@ -858,6 +899,10 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
                 'Content-Type': cover.mimeType,
             });
             res.end(cover.data);
+            return;
+        }
+        if (method === 'tesuUpload' && req.method === 'POST') {
+            sendJson(res, wrap(await receiveUpload(req, params)));
             return;
         }
         const fn = methods[method];

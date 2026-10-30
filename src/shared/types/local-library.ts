@@ -29,3 +29,13 @@ export interface RemoteLibrary {
 
 export const LOCAL_SERVER_ID = 'local-library';
 export const REMOTE_SERVER_ID = 'remote-library';
+
+/** Spotify playlist / album imported as a playlist of the library */
+export interface SpotifyImportResult {
+    found: number;
+    /** "Artist - Title" of the tracks that were not found */
+    missing: string[];
+    name: string;
+    playlistId: string;
+    total: number;
+}
