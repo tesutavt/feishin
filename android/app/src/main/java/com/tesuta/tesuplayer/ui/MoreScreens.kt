@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -401,6 +402,11 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
                     updating = false
                 }
             }, primary = false)
+            Spacer(Modifier.height(8.dp))
+            PillButton("Исправить теги скачанного с YouTube", Icons.Default.Sell, { vm.retagDownloads() }, primary = false)
+            Text("Заново ищет исполнителя, альбом и обложку в каталоге iTunes - исправляет перепутанные название и исполнителя. " +
+                "Если трека там нет: меню трека → «Поменять местами название и исполнителя».",
+                color = Palette.subtext, style = MaterialTheme.typography.bodySmall)
             Text("Если YouTube перестал играть — обновите yt-dlp. Если не ищет — включите «Частный DNS» (dns.google) в настройках Android.",
                 color = Palette.subtext, style = MaterialTheme.typography.bodySmall)
         }

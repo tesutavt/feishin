@@ -144,6 +144,7 @@ fun trackActions(vm: AppViewModel, nav: Nav, track: Track, list: List<Track>, pl
         if (downloadable && !downloaded) {
             add(TrackAction(if (track.source == Source.YOUTUBE) "Скачать как музыку" else "Скачать на телефон") { vm.download(listOf(track)) })
         }
+        if (vm.downloadOf(track)?.source == Source.YOUTUBE) add(TrackAction("Поменять местами название и исполнителя") { vm.swapArtistTitle(track) })
         if (vm.canSendToPc(track)) add(TrackAction("Отправить на компьютер") { vm.sendToPc(listOf(track)) })
         if (downloaded) add(TrackAction("Удалить загрузку") { vm.downloads.items.value.find { it.id == track.id }?.let(vm.downloads::delete) })
         add(TrackAction("Информация и оценка") { vm.trackInfo.value = track })

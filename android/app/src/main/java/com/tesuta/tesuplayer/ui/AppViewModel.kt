@@ -205,6 +205,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun retagDownloads() = viewModelScope.launch {
+        toast("Ищу теги…")
+        runCatching { downloads.retag() }
+            .onSuccess { (fixed, total) -> toast("Обновлено треков: $fixed из $total"); changed() }
+            .onFailure { toast("Не получилось: ${it.message}") }
+    }
+
+    /** The download behind a track: from the downloads list or its copy in the phone library */
+    fun downloadOf(track: Track): Track? = downloads.items.value.firstOrNull { it.id == track.id.removePrefix("local:dl:") }
+
+    fun swapArtistTitle(track: Track) {
+        val d = downloadOf(track) ?: return
+        downloads.swapArtistTitle(d.id)
+        changed()
+        toast("Исполнитель: ${d.title}")
+    }
+
     fun share(track: Track) {
         val text = track.pageUrl ?: "${track.artist} — ${track.title}"
         val intent = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)

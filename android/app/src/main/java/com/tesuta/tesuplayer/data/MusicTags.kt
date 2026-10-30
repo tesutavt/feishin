@@ -83,10 +83,14 @@ object MusicTagsLookup {
 
     suspend fun lookup(rawTitle: String, channel: String, fallbackCover: String?): MusicTags {
         val (artist, title) = parse(rawTitle, channel)
-        val single = MusicTags(artist, title, album = title, coverUrl = fallbackCover)
+        return find(artist, title, fallbackCover) ?: MusicTags(artist, title, album = title, coverUrl = fallbackCover)
+    }
+
+    /** The song in the iTunes catalogue, or null when it is not there */
+    suspend fun find(artist: String, title: String, fallbackCover: String? = null): MusicTags? {
         val results = search("$artist $title")
         // "Song - Artist" titles: the same results, the other way round
-        val hit = best(results, artist, title) ?: best(results, title, artist) ?: return single
+        val hit = best(results, artist, title) ?: best(results, title, artist) ?: return null
         return MusicTags(
             artist = hit.str("artistName") ?: artist,
             title = hit.str("trackName") ?: title,

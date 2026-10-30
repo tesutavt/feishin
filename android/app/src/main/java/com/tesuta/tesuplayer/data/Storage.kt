@@ -210,6 +210,25 @@ class Downloads(private val context: Context) {
         if (isDownloaded(id)) save(_items.value.map { if (it.id == id) block(it) else it })
     }
 
+    /** Earlier YouTube downloads: artist / album / cover from iTunes again (fixes swapped artist and title) */
+    suspend fun retag(): Pair<Int, Int> {
+        val list = _items.value.filter { it.source == Source.YOUTUBE }
+        var fixed = 0
+        for (t in list) {
+            val tags = MusicTagsLookup.find(t.artist, t.title) ?: continue
+            val cover = tags.coverUrl?.let { saveCover(t.id, it) } ?: t.coverUrl
+            update(t.id) {
+                it.copy(title = tags.title, artist = tags.artist, album = tags.album, year = tags.year ?: it.year,
+                    trackNumber = tags.trackNumber ?: it.trackNumber, genre = tags.genre ?: it.genre, coverUrl = cover)
+            }
+            fixed++
+        }
+        return fixed to list.size
+    }
+
+    /** For songs iTunes does not know: the title was taken for the artist */
+    fun swapArtistTitle(id: String) = update(id) { it.copy(artist = it.title, title = it.artist) }
+
     fun refresh() {
         _items.value = _items.value.toList()
     }
