@@ -27,6 +27,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
@@ -131,6 +133,7 @@ fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, modifier: Modifier =
     val hidden by vm.hidden.collectAsState()
     val visualizer by vm.visualizer.collectAsState()
     val audioSession by (vm.getApplication<TesuApp>()).audioSession.collectAsState()
+    val downloaded = vm.downloads.items.collectAsState().value.map { it.id }.toSet()
     val tabs = PlayerTab.entries.filter { it.part == null || it.part !in hidden }
     val shown = if (tab in tabs) tab else PlayerTab.COVER
     val starrable = libraryTrack || (track?.source == Source.YOUTUBE && track.pageUrl != null)
@@ -198,6 +201,13 @@ fun FullPlayer(state: PlayerUi, vm: AppViewModel, nav: Nav, modifier: Modifier =
                     RatingBar(track.rating, 20) { vm.rate(track, it) }
                     IconButton(onClick = { vm.addToPlaylist.value = listOf(track) }) {
                         Icon(Icons.AutoMirrored.Filled.PlaylistAdd, "В плейлист", tint = Palette.subtext)
+                    }
+                }
+                if (track?.source == Source.YOUTUBE && track.pageUrl != null) {
+                    if (track.id in downloaded) {
+                        IconButton(onClick = {}, enabled = false) { Icon(Icons.Default.DownloadDone, "Скачано", tint = Palette.green) }
+                    } else {
+                        IconButton(onClick = { vm.download(listOf(track)) }) { Icon(Icons.Default.Download, "Скачать", tint = Palette.subtext) }
                     }
                 }
                 Spacer(Modifier.weight(1f))

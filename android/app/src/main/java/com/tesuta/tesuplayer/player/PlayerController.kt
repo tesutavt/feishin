@@ -164,7 +164,8 @@ class PlayerController(private val context: Context, private val prefs: Prefs) {
         }
     }
 
-    private fun needsResolve(t: Track) = t.localPath == null && t.source != Source.SERVER
+    /** YouTube / Twitch without a downloaded file (or the file is gone): yt-dlp finds the stream */
+    private fun needsResolve(t: Track) = t.source != Source.SERVER && (t.localPath == null || !File(t.localPath).exists())
 
     /** Builds a MediaItem; YouTube / Twitch go through yt-dlp first. */
     private suspend fun toMediaItem(t: Track): MediaItem {

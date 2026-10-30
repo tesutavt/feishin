@@ -41,8 +41,14 @@ export const parseVideoTitle = (info: any): { artist: string; title: string } =>
     if (!artist) {
         const match = title.match(/^(.+?)\s+[-–—|]\s+(.+)$/);
         if (match) {
-            artist = match[1].trim();
-            title = match[2].trim();
+            // "Song - Artist" (common for anime / VTuber channels): the channel tells which side is the artist
+            const key = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+            const isChannel = (value: string) =>
+                Boolean(key(channel)) &&
+                (key(value).includes(key(channel)) || key(channel).includes(key(value)));
+            const swapped = isChannel(match[2].replace(/\s*[([].*$/, '')) && !isChannel(match[1]);
+            artist = (swapped ? match[2].replace(/\s*[([].*$/, '') : match[1]).trim();
+            title = (swapped ? match[1] : match[2]).trim();
         } else {
             artist = channel;
         }

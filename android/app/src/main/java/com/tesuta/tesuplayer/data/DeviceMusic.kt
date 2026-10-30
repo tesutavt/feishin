@@ -89,7 +89,8 @@ class DeviceMusic(private val context: Context, private val downloads: Downloads
             genreColumn,
         ).toTypedArray()
         // downloads come from their own index below (real tags, stable ids)
-        val savedPaths = saved.mapNotNullTo(HashSet()) { it.localPath }
+        val finished = saved.mapNotNull(downloads::finished).filter { it.localPath != null }
+        val savedPaths = (saved + finished).mapNotNullTo(HashSet()) { it.localPath }
         val tracks = mutableListOf<Pair<Track, Long>>()
         runCatching {
             context.contentResolver.query(
@@ -127,9 +128,8 @@ class DeviceMusic(private val context: Context, private val downloads: Downloads
         }
         // finished downloads, also those the system has not indexed (yet) and the offline copies
         // of computer songs, which live in the app folder the system never indexes
-        for (d in saved) {
-            val path = d.localPath ?: continue
-            if (downloads.state(d) != DownloadState.DONE) continue
+        for (d in finished) {
+            val path = d.localPath!!
             val file = File(path)
             val artist = d.artist.ifBlank { "Неизвестный исполнитель" }
             tracks += d.copy(

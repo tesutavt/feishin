@@ -364,6 +364,7 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
         item {
             SectionTitle("Воспроизведение")
             SettingSwitch("Auto-DJ", "Когда очередь заканчивается — добавлять похожие треки (для YouTube — YouTube Mix)", prefs.autoDj) { prefs.autoDj = it }
+            SettingSwitch("Скачивать то, что слушаю", "YouTube-треки сохраняются на телефон в фоне, пока играют: в следующий раз - без интернета", prefs.autoDownload) { prefs.autoDownload = it }
             SettingSwitch("Учитывать прослушивания", "Считать прослушивания и «недавно игранные» (на ПК — синхронно)", prefs.scrobble) { prefs.scrobble = it }
             Row(Modifier.fillMaxWidth().clickable { nav.to("equalizer") }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Equalizer, null, tint = Palette.mauve)

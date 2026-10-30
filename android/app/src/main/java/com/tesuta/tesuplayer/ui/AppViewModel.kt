@@ -83,6 +83,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         player.warmUp()
         startHeartbeat()
         watchScrobbles()
+        watchAutoDownload()
     }
 
     fun toast(text: String?) { _message.value = text }
@@ -179,15 +180,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         runCatching { api(library).randomSongs(200) }.onSuccess { play(it) }.onFailure { toast("Не получилось: ${it.message}") }
     }
 
-    fun download(tracks: List<Track>) {
+    fun download(tracks: List<Track>, quiet: Boolean = false) {
         viewModelScope.launch {
             var failed = 0
-            val todo = tracks.filter { it.source != Source.TWITCH && !it.id.startsWith("local:") && !downloads.isDownloaded(it.id) }
-            if (todo.isEmpty()) { toast("Уже на телефоне"); return@launch }
-            toast("Скачиваю: ${todo.size}")
+            val todo = tracks.filter {
+                it.source != Source.TWITCH && !it.id.startsWith("local:") && !it.id.startsWith("radio:") && !downloads.isDownloaded(it.id)
+            }
+            if (todo.isEmpty()) { if (!quiet) toast("Уже на телефоне"); return@launch }
+            if (!quiet) toast("Скачиваю: ${todo.size}")
             for (t in todo) runCatching { downloads.download(t) }.onFailure { failed++ }
             phone.invalidate()
-            toast(if (failed == 0) "Загрузка началась — смотрите уведомления" else "Не удалось скачать: $failed")
+            if (!quiet || failed > 0) toast(if (failed == 0) "Загрузка началась — смотрите уведомления" else "Не удалось скачать: $failed")
+        }
+    }
+
+    /** "Скачивать то, что слушаю": a YouTube song is saved once it starts playing */
+    private fun watchAutoDownload() = viewModelScope.launch {
+        var last: String? = null
+        player.state.collect { s ->
+            val track = s.track ?: return@collect
+            if (!s.isPlaying || track.id == last) return@collect
+            last = track.id
+            if (prefs.autoDownload && track.source == Source.YOUTUBE && track.pageUrl != null && online.value) download(listOf(track), quiet = true)
         }
     }
 

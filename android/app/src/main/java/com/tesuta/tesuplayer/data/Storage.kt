@@ -59,6 +59,8 @@ class Prefs(context: Context) {
     /** Look: a preset theme or "CUSTOM" with three colours "#bg,#accent,#text" */
     var theme: String? get() = sp.getString("theme", null); set(v) = sp.edit().putString("theme", v).apply()
     var customTheme: String? get() = sp.getString("theme_custom", null); set(v) = sp.edit().putString("theme_custom", v).apply()
+    /** YouTube songs that are played get downloaded in the background */
+    var autoDownload: Boolean get() = bool("auto_download", false); set(v) = setBool("auto_download", v)
     var visualizer: Boolean get() = bool("visualizer", false); set(v) = setBool("visualizer", v)
     /** Parts of the interface turned off in the settings */
     var hidden: Set<UiPart>
@@ -124,12 +126,22 @@ class Downloads(private val context: Context) {
         dm.query(DownloadManager.Query().setFilterById(id)).use { c ->
             if (!c.moveToFirst()) return if (File(track.localPath.orEmpty()).exists()) DownloadState.DONE else DownloadState.FAILED
             return when (c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
-                DownloadManager.STATUS_SUCCESSFUL -> DownloadState.DONE
+                DownloadManager.STATUS_SUCCESSFUL -> {
+                    // the system may store the file under another name than asked for
+                    val actual = c.getString(c.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
+                        ?.let { Uri.parse(it) }?.takeIf { it.scheme == "file" }?.path
+                    if (actual != null && actual != track.localPath && File(actual).exists()) update(track.id) { it.copy(localPath = actual) }
+                    DownloadState.DONE
+                }
                 DownloadManager.STATUS_FAILED -> DownloadState.FAILED
                 else -> DownloadState.PENDING
             }
         }
     }
+
+    /** The finished download with its real file path, or null while pending / failed */
+    fun finished(track: Track): Track? =
+        if (state(track) == DownloadState.DONE) _items.value.firstOrNull { it.id == track.id } else null
 
     private fun safeName(value: String) = value.replace(Regex("[\\\\/:*?\"<>|\\n\\r]"), "_").take(80)
 

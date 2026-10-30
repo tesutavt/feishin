@@ -1,7 +1,11 @@
 package com.tesuta.tesuplayer.data
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
@@ -39,38 +43,58 @@ object MusicTagsLookup {
         var title = rawTitle
         var artist = ""
         Regex("^(.+?)\\s+[-–—|]\\s+(.+)$").find(title)?.let {
-            artist = it.groupValues[1].trim(); title = it.groupValues[2].trim()
+            val (left, right) = it.groupValues[1].trim() to it.groupValues[2].trim()
+            // "Song - Artist" (common for anime / VTuber channels): the channel name tells which side is the artist
+            val swapped = similar(right.replace(junk, ""), channel) && !similar(left, channel)
+            artist = if (swapped) right.replace(junk, "") else left
+            title = if (swapped) left else right
         }
         if (artist.isEmpty()) artist = channel.removeSuffix(" - Topic").replace(Regex("VEVO$", RegexOption.IGNORE_CASE), "").trim()
         title = title.replace(junk, "").replace(Regex("\\s*\\|.*$"), "").trim()
         return artist.ifEmpty { "YouTube" } to title.ifEmpty { rawTitle }
     }
 
+    /** iTunes refuses bursts: several downloads at once look up one by one */
+    private val itunes = Mutex()
+
+    private suspend fun search(term: String): List<JsonObject> = itunes.withLock {
+        val url = "https://itunes.apple.com/search".toHttpUrl().newBuilder()
+            .addQueryParameter("term", term)
+            .addQueryParameter("entity", "song")
+            .addQueryParameter("media", "music")
+            .addQueryParameter("limit", "15").build()
+        repeat(3) { attempt ->
+            val results = withContext(Dispatchers.IO) {
+                runCatching {
+                    Http.newCall(Request.Builder().url(url).build()).execute().use { r ->
+                        if (!r.isSuccessful) null else AppJson.parseToJsonElement(r.body?.string().orEmpty()).jsonObject.arr("results")
+                    }
+                }.getOrNull()
+            }
+            if (results != null) return@withLock results
+            delay(1500L * (attempt + 1))
+        }
+        emptyList()
+    }
+
+    private fun best(results: List<JsonObject>, artist: String, title: String) =
+        results.firstOrNull { similar(it.str("artistName").orEmpty(), artist) && normalize(it.str("trackName").orEmpty()) == normalize(title) }
+            ?: results.firstOrNull { similar(it.str("artistName").orEmpty(), artist) && similar(it.str("trackName").orEmpty(), title) }
+
     suspend fun lookup(rawTitle: String, channel: String, fallbackCover: String?): MusicTags {
         val (artist, title) = parse(rawTitle, channel)
         val single = MusicTags(artist, title, album = title, coverUrl = fallbackCover)
-        return withContext(Dispatchers.IO) {
-            runCatching {
-                val url = "https://itunes.apple.com/search".toHttpUrl().newBuilder()
-                    .addQueryParameter("term", "$artist $title")
-                    .addQueryParameter("entity", "song")
-                    .addQueryParameter("media", "music")
-                    .addQueryParameter("limit", "15").build()
-                val body = Http.newCall(Request.Builder().url(url).build()).execute().use { it.body?.string().orEmpty() }
-                val results = AppJson.parseToJsonElement(body).jsonObject.arr("results")
-                val hit = results.firstOrNull { similar(it.str("artistName").orEmpty(), artist) && normalize(it.str("trackName").orEmpty()) == normalize(title) }
-                    ?: results.firstOrNull { similar(it.str("artistName").orEmpty(), artist) && similar(it.str("trackName").orEmpty(), title) }
-                    ?: return@runCatching single
-                MusicTags(
-                    artist = hit.str("artistName") ?: artist,
-                    title = hit.str("trackName") ?: title,
-                    album = (hit.str("collectionName") ?: title).replace(Regex("\\s+-\\s+(Single|EP)$", RegexOption.IGNORE_CASE), ""),
-                    year = hit.str("releaseDate")?.take(4)?.toIntOrNull(),
-                    trackNumber = hit.int("trackNumber"),
-                    genre = hit.str("primaryGenreName"),
-                    coverUrl = hit.str("artworkUrl100")?.replace(Regex("/\\d+x\\d+bb\\."), "/600x600bb.") ?: fallbackCover,
-                )
-            }.getOrDefault(single)
-        }
+        val results = search("$artist $title")
+        // "Song - Artist" titles: the same results, the other way round
+        val hit = best(results, artist, title) ?: best(results, title, artist) ?: return single
+        return MusicTags(
+            artist = hit.str("artistName") ?: artist,
+            title = hit.str("trackName") ?: title,
+            album = (hit.str("collectionName") ?: title).replace(Regex("\\s+-\\s+(Single|EP)$", RegexOption.IGNORE_CASE), ""),
+            year = hit.str("releaseDate")?.take(4)?.toIntOrNull(),
+            trackNumber = hit.int("trackNumber"),
+            genre = hit.str("primaryGenreName"),
+            coverUrl = hit.str("artworkUrl100")?.replace(Regex("/\\d+x\\d+bb\\."), "/600x600bb.") ?: fallbackCover,
+        )
     }
 }
