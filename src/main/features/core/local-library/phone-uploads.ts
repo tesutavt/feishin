@@ -89,11 +89,30 @@ export const receivePhoneUpload = async (req: IncomingMessage, name: string, met
     if (!AUDIO_EXTENSIONS.has(ext)) throw new Error('Not a music file');
 
     // a computer song downloaded to the phone, or a song the library already has
-    const existing = (meta.pcId && library.songs.get(meta.pcId)) || findSame(meta);
+    const existing =
+        (meta.pcId && library.songs.get(meta.pcId)) || findSame(meta, (s) => isPhoneCopy(s));
     if (existing) {
         await drain(req);
         log.info('Phone upload skipped, already in the library', { existing: existing.path });
         return { duplicate: true, file: null };
+    }
+
+    // sent before: replaced by this copy with tags and cover. Older versions stored the
+    // file untagged under its own name, so the name finds those too
+    const sentName = safeName(path.basename(name)).toLowerCase();
+    const earlier = [...library.songs.values()].filter(
+        (s) =>
+            isPhoneCopy(s) &&
+            (path.basename(s.path).toLowerCase() === sentName ||
+                findSame(meta, (other) => other !== s) === s),
+    );
+    for (const old of earlier) {
+        await shell.trashItem(old.path).catch((error) =>
+            log.warn('Could not replace an earlier phone copy', {
+                error: String(error),
+                path: old.path,
+            }),
+        );
     }
 
     const artist = meta.artist || 'Неизвестный исполнитель';
