@@ -7,6 +7,7 @@ import { downloadsDir, library } from './library';
 import { removeDuplicatePhoneCopies } from './phone-uploads';
 import { startLocalServer } from './server';
 import { importSpotify } from './spotify';
+import { replaceDownloadedYoutubeSongs } from './youtube';
 
 import log from '/@/main/logger';
 
@@ -29,6 +30,9 @@ const ready = app.whenReady().then(async () => {
     await library.scan();
     // copies the phone sent before duplicates were checked
     if ((await removeDuplicatePhoneCopies()) > 0) library.scan();
+    // YouTube favourites downloaded before they were moved to the file
+    const replaced = replaceDownloadedYoutubeSongs();
+    if (replaced > 0) log.info('YouTube songs replaced by their downloads', { replaced });
 });
 
 const lanAddresses = () =>

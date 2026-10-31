@@ -58,6 +58,7 @@ import { SegmentedControl } from '/@/shared/components/segmented-control/segment
 import { Select } from '/@/shared/components/select/select';
 import { Slider } from '/@/shared/components/slider/slider';
 import { Stack } from '/@/shared/components/stack/stack';
+import { toast } from '/@/shared/components/toast/toast';
 import { useMediaQuery } from '/@/shared/hooks/use-media-query';
 import { useThrottledCallback } from '/@/shared/hooks/use-throttled-callback';
 import { useThrottledValue } from '/@/shared/hooks/use-throttled-value';
@@ -391,6 +392,19 @@ const QueueButton = () => {
 const YoutubeDownloadButton = () => {
     const currentSong = usePlayerSong();
     const [busy, setBusy] = useState(false);
+    const songId = currentSong?.id;
+    // "Скачивать то, что слушаю": the main process downloads it if the switch is on
+    useEffect(() => {
+        if (!isElectron() || !songId?.startsWith('yt-')) return;
+        window.api.streams.nowPlaying(songId).then((track) => {
+            if (track) {
+                toast.success({
+                    message: `${track.artist} - ${track.title}`,
+                    title: t('streams.downloadDone'),
+                });
+            }
+        });
+    }, [songId]);
     if (!isElectron() || !currentSong?.id?.startsWith('yt-')) return null;
 
     return (

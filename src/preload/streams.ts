@@ -14,6 +14,15 @@ const downloadYtDlp = (): Promise<YtDlpStatus> => ipcRenderer.invoke('streams-yt
 const downloadAudio = (url: string): Promise<DownloadedTrack> =>
     ipcRenderer.invoke('streams-download-audio', url);
 
+const getAutoDownload = (): Promise<boolean> => ipcRenderer.invoke('streams-auto-download-get');
+
+const setAutoDownload = (on: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('streams-auto-download-set', on);
+
+/** The player started a song: with auto-download on, a YouTube song is saved as a file */
+const nowPlaying = (songId: string): Promise<DownloadedTrack | null> =>
+    ipcRenderer.invoke('streams-now-playing', songId);
+
 const registerYoutube = (items: ExternalSearchResult[]): Promise<string[]> =>
     ipcRenderer.invoke('streams-register-youtube', items);
 
@@ -37,12 +46,15 @@ const searchYoutube = (query: string): Promise<ExternalSearchResult[]> =>
 export const streams = {
     downloadAudio,
     downloadYtDlp,
+    getAutoDownload,
     getYtDlpStatus,
+    nowPlaying,
     publicCover,
     registerYoutube,
     resolve,
     retagDownloads,
     searchYoutube,
+    setAutoDownload,
 };
 
 export type Streams = typeof streams;

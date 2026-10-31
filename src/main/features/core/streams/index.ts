@@ -7,10 +7,14 @@ import { TagLib } from 'taglib-wasm';
 import { downloadsDir, library } from '/@/main/features/core/local-library/library';
 import { setSpotifyYoutubeFinder } from '/@/main/features/core/local-library/spotify';
 import {
+    downloadedCopyOf,
     registerYoutube,
+    replaceYoutubeWithFile,
     setYoutubeMixProvider,
     setYoutubeResolver,
+    youtubeId,
 } from '/@/main/features/core/local-library/youtube';
+import { store } from '/@/main/features/core/settings';
 import { getDohProxyUrl } from '/@/main/features/core/streams/doh-proxy';
 import {
     findMusicTags,
@@ -277,10 +281,43 @@ const moveIntoLibrary = async (file: string, tags: MusicTags) => {
     return target;
 };
 
+const videoIdOf = (url: string) => /(?:[?&]v=|youtu\.be\/|shorts\/)([\w-]{6,})/.exec(url)?.[1];
+
+/** Downloads running now, by video: the auto-download and a click never fetch it twice */
+const downloading = new Map<string, Promise<DownloadedTrack>>();
+
+/**
+ * A YouTube song as a tagged file in the library. Once the file is there, the YouTube song's
+ * favourite, rating and playlist places move to it; a video downloaded before is not fetched again
+ */
 const downloadAudio = async (pageUrl: string): Promise<DownloadedTrack> => {
     if (getExternalStreamSource(pageUrl) !== 'youtube') {
         throw new Error('Only YouTube links can be downloaded');
     }
+    const videoId = videoIdOf(pageUrl);
+    if (!videoId) return fetchAudio(pageUrl);
+    const existing = downloadedCopyOf(videoId);
+    if (existing) {
+        replaceYoutubeWithFile(youtubeId(videoId), existing.id);
+        return { artist: existing.artist, path: existing.path, title: existing.title };
+    }
+    const running = downloading.get(videoId);
+    if (running) return running;
+    const job = fetchAudio(pageUrl)
+        .then((track) => {
+            const file = [...library.songs.values()].find(
+                (s) => path.resolve(s.path) === path.resolve(track.path),
+            );
+            // only now that the file is in the library: until then the YouTube song stays
+            if (file) replaceYoutubeWithFile(youtubeId(videoId), file.id);
+            return track;
+        })
+        .finally(() => downloading.delete(videoId));
+    downloading.set(videoId, job);
+    return job;
+};
+
+const fetchAudio = async (pageUrl: string): Promise<DownloadedTrack> => {
     const binary = await requireYtDlp();
     const tmpDir = path.join(downloadsDir(), 'YouTube');
     await fs.mkdir(tmpDir, { recursive: true });
@@ -375,6 +412,25 @@ ipcMain.handle(
 );
 
 ipcMain.handle('streams-download-audio', (_event, url: string) => downloadAudio(url));
+
+// "Скачивать то, что слушаю": the player reports each YouTube song it starts
+const AUTO_DOWNLOAD_KEY = 'streams_auto_download';
+ipcMain.handle('streams-auto-download-get', () => Boolean(store.get(AUTO_DOWNLOAD_KEY, false)));
+ipcMain.handle('streams-auto-download-set', (_event, on: boolean) => {
+    store.set(AUTO_DOWNLOAD_KEY, Boolean(on));
+    return Boolean(on);
+});
+ipcMain.handle('streams-now-playing', async (_event, songId: string) => {
+    if (!store.get(AUTO_DOWNLOAD_KEY, false) || !songId?.startsWith('yt-')) return null;
+    const videoId = songId.slice(3);
+    if (downloadedCopyOf(videoId) || downloading.has(videoId)) return null;
+    try {
+        return await downloadAudio(`https://www.youtube.com/watch?v=${videoId}`);
+    } catch (error) {
+        log.warn('Auto-download failed', { error: String(error), songId });
+        return null;
+    }
+});
 
 ipcMain.handle('streams-ytdlp-status', async () => {
     await requireYtDlp().catch(() => undefined);

@@ -8,6 +8,7 @@ import { library, LocalAlbum, LocalArtist, LocalSong } from './library';
 import { receivePhoneCover, receivePhoneUpload } from './phone-uploads';
 import { importSpotify } from './spotify';
 import {
+    downloadedCopyOf,
     getYoutubeMix,
     getYoutubeSong,
     getYoutubeStreamUrl,
@@ -240,6 +241,10 @@ const filterYearGenre = (songs: LocalSong[], p: Params) => {
             (!p.has('fromYear') || (s.year >= from && s.year <= to)),
     );
 };
+
+/** A YouTube song that is downloaded already: its favourite / rating belong to the file */
+const fileOf = (id: string) =>
+    (isYoutubeId(id) && downloadedCopyOf(id.slice('yt-'.length))?.id) || id;
 
 const starredLists = () => ({
     album: allAlbums()
@@ -622,7 +627,7 @@ const methods: Record<string, (p: Params) => object | Promise<object>> = {
     search2: (p) => ({ searchResult2: search(p) }),
     search3: (p) => ({ searchResult3: search(p) }),
     setRating: (p) => {
-        const id = p.get('id') ?? '';
+        const id = fileOf(p.get('id') ?? '');
         const rating = num(p, 'rating', 0);
         if (rating > 0) u().ratings[id] = rating;
         else delete u().ratings[id];
@@ -631,7 +636,7 @@ const methods: Record<string, (p: Params) => object | Promise<object>> = {
     },
     star: (p) => {
         const now = new Date().toISOString();
-        for (const id of ids(p, 'id', 'albumId', 'artistId')) u().starred[id] = now;
+        for (const id of ids(p, 'id', 'albumId', 'artistId')) u().starred[fileOf(id)] = now;
         library.save();
         return {};
     },
@@ -684,7 +689,10 @@ const methods: Record<string, (p: Params) => object | Promise<object>> = {
         }),
     }),
     unstar: (p) => {
-        for (const id of ids(p, 'id', 'albumId', 'artistId')) delete u().starred[id];
+        for (const id of ids(p, 'id', 'albumId', 'artistId')) {
+            delete u().starred[id];
+            delete u().starred[fileOf(id)];
+        }
         library.save();
         return {};
     },

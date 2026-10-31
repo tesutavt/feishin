@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { queryKeys } from '/@/renderer/api/query-keys';
@@ -250,6 +250,26 @@ const SpotifyImport = () => {
 };
 
 /** Earlier YouTube downloads: find their real album / artist / cover */
+/** The same switch as on the phone: YouTube songs are saved as files while they play */
+const AutoDownloadSwitch = () => {
+    const { t } = useTranslation();
+    const [on, setOn] = useState<boolean | null>(null);
+    useEffect(() => {
+        window.api.streams.getAutoDownload().then(setOn);
+    }, []);
+    if (on === null) return null;
+    return (
+        <Switch
+            checked={on}
+            description={t('library.autoDownloadHint')}
+            label={t('library.autoDownload')}
+            onChange={async (e) =>
+                setOn(await window.api.streams.setAutoDownload(e.currentTarget.checked))
+            }
+        />
+    );
+};
+
 const RetagButton = () => {
     const { t } = useTranslation();
     const [busy, setBusy] = useState(false);
@@ -337,6 +357,7 @@ export const LibraryTab = () => {
 
             <Section title="YouTube / Twitch">
                 <YtDlpStatusLine />
+                <AutoDownloadSwitch />
                 <RetagButton />
                 <Text isMuted size="sm">
                     {t('library.downloadsHint', { dir: info.downloadsDir })}

@@ -1706,6 +1706,8 @@
         "connected": "Connected",
         "connectFailed": "Could not connect",
         "useThisComputer": "Back to this computer",
+        "autoDownload": "Download what I listen to",
+        "autoDownloadHint": "YouTube songs are saved to the library in the background while they play. Favourites, ratings and playlist places move to the file once it is ready, so there are no duplicates",
         "retag": "Fix tags of YouTube downloads",
         "retagDone": "Updated {{fixed}} of {{total}} tracks",
         "spotifyTitle": "Import from Spotify",

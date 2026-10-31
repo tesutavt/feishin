@@ -105,3 +105,80 @@ export const getYoutubeStreamUrl = async (id: string) => {
 export const getYoutubeThumbnail = (id: string) =>
     knownYoutubeSong(id)?.thumbnail ||
     `https://i.ytimg.com/vi/${id.slice(PREFIX.length)}/hqdefault.jpg`;
+
+const videoIdOfUrl = (url?: string) =>
+    url ? /(?:[?&]v=|youtu\.be\/|shorts\/)([\w-]{6,})/.exec(url)?.[1] : undefined;
+
+/** The downloaded file of a YouTube video, if the library has one */
+export const downloadedCopyOf = (videoId: string) => {
+    for (const song of library.songs.values()) {
+        if (videoIdOfUrl(song.sourceUrl) === videoId) return song;
+    }
+    return undefined;
+};
+
+/**
+ * The YouTube song was downloaded: its favourite, rating, plays and playlist places move
+ * to the file, so it is one song, not a stream and a copy side by side
+ */
+export const replaceYoutubeWithFile = (ytId: string, fileId: string) => {
+    const user = library.user;
+    let changed = false;
+    if (user.starred[ytId]) {
+        user.starred[fileId] ??= user.starred[ytId];
+        delete user.starred[ytId];
+        changed = true;
+    }
+    if (user.ratings[ytId]) {
+        user.ratings[fileId] ||= user.ratings[ytId];
+        delete user.ratings[ytId];
+        changed = true;
+    }
+    if (user.playCounts[ytId]) {
+        user.playCounts[fileId] = (user.playCounts[fileId] ?? 0) + user.playCounts[ytId];
+        delete user.playCounts[ytId];
+        changed = true;
+    }
+    if (user.lastPlayed[ytId]) {
+        if (!user.lastPlayed[fileId] || user.lastPlayed[fileId] < user.lastPlayed[ytId]) {
+            user.lastPlayed[fileId] = user.lastPlayed[ytId];
+        }
+        delete user.lastPlayed[ytId];
+        changed = true;
+    }
+    for (const playlist of user.playlists) {
+        if (!playlist.songIds.includes(ytId)) continue;
+        // the file may be in the playlist already: keep one entry
+        const has = playlist.songIds.includes(fileId);
+        playlist.songIds = playlist.songIds.flatMap((id) =>
+            id === ytId ? (has ? [] : [fileId]) : [id],
+        );
+        playlist.changed = new Date().toISOString();
+        changed = true;
+    }
+    const queue = user.playQueue;
+    if (queue?.songIds.includes(ytId)) {
+        queue.songIds = queue.songIds.map((id) => (id === ytId ? fileId : id));
+        if (queue.current === ytId) queue.current = fileId;
+        changed = true;
+    }
+    if (changed) library.save();
+    return changed;
+};
+
+/** Earlier downloads: YouTube songs in favourites / playlists that already have their file */
+export const replaceDownloadedYoutubeSongs = () => {
+    const user = library.user;
+    const ids = new Set([
+        ...Object.keys(user.ratings),
+        ...Object.keys(user.starred),
+        ...user.playlists.flatMap((p) => p.songIds),
+    ]);
+    let replaced = 0;
+    for (const id of ids) {
+        if (!isYoutubeId(id)) continue;
+        const file = downloadedCopyOf(id.slice(PREFIX.length));
+        if (file && replaceYoutubeWithFile(id, file.id)) replaced++;
+    }
+    return replaced;
+};
