@@ -6,7 +6,7 @@ import os from 'os';
 import { downloadsDir, library } from './library';
 import { removeDuplicatePhoneCopies } from './phone-uploads';
 import { startLocalServer } from './server';
-import { importSpotify } from './spotify';
+import { getSpotifyProxy, importSpotify, setSpotifyProxy } from './spotify';
 import { replaceDownloadedYoutubeSongs } from './youtube';
 
 import log from '/@/main/logger';
@@ -109,6 +109,11 @@ ipcMain.handle(
             event.sender.send('local-library-import-progress', { done, total }),
         );
     },
+);
+
+ipcMain.handle('local-library-spotify-proxy-get', () => getSpotifyProxy());
+ipcMain.handle('local-library-spotify-proxy-set', (_event, value: string) =>
+    setSpotifyProxy(value ?? ''),
 );
 
 ipcMain.handle('local-library-open-folder', (_event, folder: string) => shell.openPath(folder));

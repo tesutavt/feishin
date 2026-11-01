@@ -34,6 +34,13 @@ const importSpotify = (
         .finally(() => ipcRenderer.removeListener('local-library-import-progress', listener));
 };
 
+/** Proxy for the Spotify request only ("127.0.0.1:10808", "socks5://..."); empty = direct */
+const getSpotifyProxy = (): Promise<string> =>
+    ipcRenderer.invoke('local-library-spotify-proxy-get');
+
+const setSpotifyProxy = (value: string): Promise<string> =>
+    ipcRenderer.invoke('local-library-spotify-proxy-set', value);
+
 const onChange = (callback: (info: LocalLibraryInfo) => void) => {
     const listener = (_event: IpcRendererEvent, info: LocalLibraryInfo) => callback(info);
     ipcRenderer.on('local-library-changed', listener);
@@ -45,10 +52,12 @@ const onChange = (callback: (info: LocalLibraryInfo) => void) => {
 export const localLibrary = {
     addFolder,
     getInfo,
+    getSpotifyProxy,
     importSpotify,
     onChange,
     openFolder,
     removeFolder,
     scan,
     setRemote,
+    setSpotifyProxy,
 };

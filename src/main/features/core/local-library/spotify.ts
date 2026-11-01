@@ -1,10 +1,11 @@
 import type { SpotifyImportResult } from '/@/shared/types/local-library';
 
-import { net } from 'electron';
+import { session } from 'electron';
 import { nanoid } from 'nanoid/non-secure';
 
 import { library } from './library';
 
+import { store } from '/@/main/features/core/settings';
 import log from '/@/main/logger';
 
 // Spotify playlists / albums without a Spotify account or API key: the public embed
@@ -29,21 +30,69 @@ const LINK =
 
 export const isSpotifyLink = (text: string) => LINK.test(text);
 
+const PROXY_KEY = 'spotify_proxy';
+
+export const getSpotifyProxy = () => String(store.get(PROXY_KEY, '') ?? '');
+
+/**
+ * Spotify answers 451 "not available in your country" from Russia, so the list can come
+ * through a proxy (a VPN app's local port): only these requests use it, YouTube does not
+ */
+export const setSpotifyProxy = async (value: string) => {
+    const proxy = value.trim();
+    store.set(PROXY_KEY, proxy);
+    await spotifySession().setProxy(proxy ? { proxyRules: proxy } : { mode: 'direct' });
+    return proxy;
+};
+
+let spotifySessionReady = false;
+const spotifySession = () => {
+    const s = session.fromPartition('spotify-import');
+    if (!spotifySessionReady) {
+        spotifySessionReady = true;
+        const proxy = getSpotifyProxy();
+        if (proxy) s.setProxy({ proxyRules: proxy });
+    }
+    return s;
+};
+
+const GEO_BLOCKED =
+    'Spotify не работает в России: на запросы отсюда он отвечает «недоступно в вашей стране». ' +
+    'Включите VPN для TesuPlayer на время импорта, укажите прокси ниже (например, 127.0.0.1:10808 из ' +
+    'VPN-приложения) или загрузите CSV: он импортируется без Spotify.';
+
 export const fetchSpotify = async (
     link: string,
 ): Promise<{ name: string; tracks: ImportTrack[] }> => {
     const match = LINK.exec(link);
     if (!match) throw new Error('Это не ссылка на плейлист или альбом Spotify');
     const [, type, id] = match;
-    const response = await net.fetch(`https://open.spotify.com/embed/${type}/${id}`, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-    });
+    let response: Response;
+    try {
+        response = await spotifySession().fetch(`https://open.spotify.com/embed/${type}/${id}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+        });
+    } catch (error) {
+        const proxy = getSpotifyProxy();
+        throw new Error(
+            proxy
+                ? `Spotify: прокси ${proxy} не отвечает (${(error as Error).message})`
+                : `Spotify: ${(error as Error).message}`,
+        );
+    }
+    if (response.status === 451) throw new Error(GEO_BLOCKED);
     if (!response.ok) throw new Error(`Spotify: HTTP ${response.status}`);
     const html = await response.text();
     const json = /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/.exec(
         html,
     );
-    const entity = json && JSON.parse(json[1])?.props?.pageProps?.state?.data?.entity;
+    const pageProps = json ? JSON.parse(json[1])?.props?.pageProps : null;
+    // the page is 200 but carries {status: 451, "not available in your country"}
+    if (pageProps?.status === 451 || /not available in your country/i.test(html)) {
+        log.warn('Spotify import: geo-blocked', { link });
+        throw new Error(GEO_BLOCKED);
+    }
+    const entity = pageProps?.state?.data?.entity;
     if (!entity) throw new Error('Spotify не отдал список треков (плейлист приватный?)');
     const list: any[] = entity.trackList ?? [];
     return {

@@ -178,6 +178,28 @@ const OtherComputer = () => {
 };
 
 /** Spotify playlist / album -> playlist of this library, no Spotify account needed */
+/** Spotify is closed for Russia: its request alone can go through a VPN app's local proxy */
+const SpotifyProxy = () => {
+    const { t } = useTranslation();
+    const [value, setValue] = useState<null | string>(null);
+    useEffect(() => {
+        window.api.localLibrary.getSpotifyProxy().then(setValue);
+    }, []);
+    if (value === null) return null;
+    return (
+        <TextInput
+            description={t('library.spotifyProxyHint')}
+            label={t('library.spotifyProxy')}
+            onBlur={async (e) =>
+                setValue(await window.api.localLibrary.setSpotifyProxy(e.currentTarget.value))
+            }
+            onChange={(e) => setValue(e.currentTarget.value)}
+            placeholder="127.0.0.1:10808"
+            value={value}
+        />
+    );
+};
+
 const SpotifyImport = () => {
     const { t } = useTranslation();
     const queryClient = useQueryClient();
@@ -198,7 +220,12 @@ const SpotifyImport = () => {
             });
             setUrl('');
         } catch (error) {
-            toast.error({ message: (error as Error).message, title: t('library.spotifyFailed') });
+            // drop Electron's "Error invoking remote method '...': Error:" prefix
+            const message = (error as Error).message.replace(
+                /^Error invoking remote method '[^']+': (?:Error: )?/,
+                '',
+            );
+            toast.error({ message, title: t('library.spotifyFailed') });
         } finally {
             setProgress(null);
         }
@@ -237,6 +264,7 @@ const SpotifyImport = () => {
                 placeholder={t('library.spotifyCsvPlaceholder')}
                 value={null}
             />
+            <SpotifyProxy />
             {progress && progress.total > 0 && (
                 <Stack gap={4}>
                     <Progress value={(progress.done / progress.total) * 100} />

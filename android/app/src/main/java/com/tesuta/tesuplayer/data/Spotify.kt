@@ -15,6 +15,9 @@ data class ImportTrack(val title: String, val artist: String, val duration: Long
  * The same as the desktop "Import from Spotify".
  */
 object Spotify {
+    private const val GEO_BLOCKED = "Spotify не работает в России: на запросы отсюда он отвечает «недоступно в вашей стране». " +
+        "Включите VPN на время импорта или загрузите CSV (Exportify, TuneMyMusic): он импортируется без Spotify."
+
     private val link = Regex("(?:open\\.spotify\\.com/(?:intl-\\w+/)?|spotify:)(playlist|album|track)[/:]([A-Za-z0-9]+)")
 
     fun isLink(text: String) = link.containsMatchIn(text)
@@ -24,9 +27,12 @@ object Spotify {
         val request = Request.Builder().url("https://open.spotify.com/embed/$type/$id")
             .header("User-Agent", "Mozilla/5.0 (Linux; Android 14)").build()
         val html = Http.newCall(request).execute().use { r ->
+            if (r.code == 451) error(GEO_BLOCKED)
             if (!r.isSuccessful) error("Spotify: HTTP ${r.code}")
             r.body!!.string()
         }
+        // the page is 200 but says {status: 451, "not available in your country"}
+        if (html.contains("not available in your country", ignoreCase = true) || html.contains("\"status\":451")) error(GEO_BLOCKED)
         val json = Regex("<script id=\"__NEXT_DATA__\" type=\"application/json\">(.*?)</script>", RegexOption.DOT_MATCHES_ALL)
             .find(html)?.groupValues?.get(1) ?: error("Spotify не отдал список треков (плейлист приватный?)")
         val entity = AppJson.parseToJsonElement(json).jsonObject.obj("props")?.obj("pageProps")?.obj("state")
